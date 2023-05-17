@@ -3,19 +3,13 @@ import { observable } from 'micro-observables';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import useAsync from 'hooks/useAsync';
 import useResize from 'hooks/useResize';
 import { useSettings } from 'hooks/useSettings';
 import { getProjectColumns, searchExperiments } from 'services/api';
 import { V1BulkExperimentFilters } from 'services/api-ts-sdk';
 import usePolling from 'shared/hooks/usePolling';
-import {
-  ExperimentAction,
-  ExperimentItem,
-  ExperimentWithTrial,
-  Project,
-  ProjectColumn,
-  RunState,
-} from 'types';
+import { ExperimentAction, ExperimentItem, ExperimentWithTrial, Project, RunState } from 'types';
 import handleError from 'utils/error';
 import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 
@@ -62,7 +56,15 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
     Array(page * PAGE_SIZE).fill(NotLoaded),
   );
   const [total, setTotal] = useState<Loadable<number>>(NotLoaded);
-  const [projectColumns, setProjectColumns] = useState<Loadable<ProjectColumn[]>>(NotLoaded);
+  // TODO: poll?
+  const projectColumns = useAsync(async () => {
+    try {
+      return await getProjectColumns({ id: project.id });
+    } catch (e) {
+      handleError(e, { publicSubject: 'Unable to fetch project columns' });
+      return NotLoaded;
+    }
+  }, [project.id]);
 
   useEffect(() => {
     setSearchParams((params) => {
@@ -176,25 +178,6 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
   }, [page, experimentFilters, canceler.signal, sortString]);
 
   const { stopPolling } = usePolling(fetchExperiments, { rerunOnNewFn: true });
-
-  // TODO: poll?
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const columns = await getProjectColumns({ id: project.id });
-
-        if (mounted) {
-          setProjectColumns(Loaded(columns));
-        }
-      } catch (e) {
-        handleError(e, { publicSubject: 'Unable to fetch project columns' });
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [project.id]);
 
   useEffect(() => {
     return () => {

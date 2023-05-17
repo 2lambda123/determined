@@ -1,7 +1,8 @@
 import yaml from 'js-yaml';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 
 import Icon from 'components/kit/Icon';
+import useAsync from 'hooks/useAsync';
 import { paths } from 'routes/utils';
 import { getExperimentFileFromTree, getExperimentFileTree } from 'services/api';
 import { V1FileNode } from 'services/api-ts-sdk';
@@ -25,7 +26,20 @@ const ExperimentCodeViewer: React.FC<Props> = ({
   onSelectFile,
   selectedFilePath,
 }: Props) => {
-  const [expFiles, setExpFiles] = useState<Loadable<TreeNode[]>>(NotLoaded);
+  const expFiles = useAsync(async () => {
+    const convertV1FileNodeToTreeNode = (node: V1FileNode): TreeNode => ({
+      children: node.files?.map((n) => convertV1FileNodeToTreeNode(n)) ?? [],
+      content: NotLoaded,
+      download: paths.experimentFileFromTree(experiment.id, String(node.path)),
+      get: (path: string) => getExperimentFileFromTree({ experimentId: experiment.id, path }),
+      isLeaf: !node.isDir,
+      key: node.path ?? '',
+      title: node.name,
+    });
+    return (await getExperimentFileTree({ experimentId: experiment.id })).map<TreeNode>(
+      convertV1FileNodeToTreeNode,
+    );
+  }, [experiment.id]);
 
   const submittedConfig = useMemo(() => {
     if (!experiment.originalConfig) return;
@@ -47,23 +61,6 @@ const ExperimentCodeViewer: React.FC<Props> = ({
     } = experiment.configRaw;
     return yaml.dump({ environment: restEnvironment, ...restConfig });
   }, [experiment.configRaw]);
-
-  useEffect(() => {
-    const convertV1FileNodeToTreeNode = (node: V1FileNode): TreeNode => ({
-      children: node.files?.map((n) => convertV1FileNodeToTreeNode(n)) ?? [],
-      content: NotLoaded,
-      download: paths.experimentFileFromTree(experiment.id, String(node.path)),
-      get: (path: string) => getExperimentFileFromTree({ experimentId: experiment.id, path }),
-      isLeaf: !node.isDir,
-      key: node.path ?? '',
-      title: node.name,
-    });
-
-    (async () => {
-      const fileTree = await getExperimentFileTree({ experimentId: experiment.id });
-      setExpFiles(Loaded(fileTree.map<TreeNode>(convertV1FileNodeToTreeNode)));
-    })();
-  }, [experiment.id]);
 
   const fileOpts = [
     submittedConfig
