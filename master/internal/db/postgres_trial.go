@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -20,23 +21,39 @@ import (
 	"github.com/determined-ai/determined/proto/pkg/trialv1"
 )
 
-// TODO: rename raw_steps.
+// AddTrial adds the trial to the database and sets its ID.
+//
+// TODO(ilia): deprecate and use module function instead.
+func (db *PgDB) AddTrial(trial *model.Trial) error {
+	return AddTrial(context.TODO(), trial)
+}
 
 // AddTrial adds the trial to the database and sets its ID.
-func (db *PgDB) AddTrial(trial *model.Trial) error {
+func AddTrial(ctx context.Context, trial *model.Trial) error {
+	// Since AddTrialTx is a single query, RunInTx is an overkill.
+	return AddTrialTx(ctx, Bun(), trial)
+}
+
+// AddTrialTx adds the trial to the database and sets its ID.
+func AddTrialTx(ctx context.Context, idb bun.IDB, trial *model.Trial) error {
 	if trial.ID != 0 {
 		return errors.Errorf("error adding a trial with non-zero id %v", trial.ID)
 	}
 
-	if err := db.namedGet(&trial.ID, `
-INSERT INTO trials
-(task_id, request_id, experiment_id, state, start_time, end_time,
-hparams, warm_start_checkpoint_id, seed)
-VALUES (:task_id, :request_id, :experiment_id, :state, :start_time,
-	:end_time, :hparams, :warm_start_checkpoint_id, :seed)
-RETURNING id`, trial); err != nil {
-		// Assume the foreign key constraint is handled by the database.
-		return errors.Wrapf(err, "error inserting trial %v", *trial)
+	// HACK(ilia): Can't make hparams field compatible between old and bun, thus a `.Value` hack.
+	bytes, err := json.Marshal(trial.HParams)
+	if err != nil {
+		return fmt.Errorf("failed to serialize hparams: %w", err)
+	}
+	hparams := string(bytes)
+
+	if _, err := idb.NewInsert().Model(trial).
+		Column("task_id", "request_id", "experiment_id", "state", "start_time", "end_time",
+			"hparams", "warm_start_checkpoint_id", "seed", "external_trial_id").
+		Value("hparams", "?::jsonb", hparams).
+		Returning("id").
+		Exec(ctx); err != nil {
+		return errors.Wrapf(MatchSentinelError(err), "error inserting trial %v", *trial)
 	}
 
 	return nil
@@ -47,7 +64,7 @@ func (db *PgDB) TrialByID(id int) (*model.Trial, error) {
 	var trial model.Trial
 	err := db.query(`
 SELECT id, COALESCE(task_id, '') AS task_id, request_id, experiment_id, state, start_time,
-	end_time, hparams, warm_start_checkpoint_id, seed, total_batches
+	end_time, hparams, warm_start_checkpoint_id, seed, total_batches, external_trial_id
 FROM trials
 WHERE id = $1`, &trial, id)
 	return &trial, errors.Wrapf(err, "error querying for trial %v", id)
@@ -60,7 +77,7 @@ func (db *PgDB) TrialByExperimentAndRequestID(
 	var trial model.Trial
 	err := db.query(`
 SELECT id, task_id, request_id, experiment_id, state, start_time,
-  end_time, hparams, warm_start_checkpoint_id, seed, total_batches
+  end_time, hparams, warm_start_checkpoint_id, seed, total_batches, external_trial_id
 FROM trials
 WHERE experiment_id = $1 AND request_id = $2`, &trial, experimentID, requestID)
 	return &trial, errors.Wrapf(err, "error querying for trial %v", requestID)
@@ -201,7 +218,7 @@ func (db *PgDB) calculateFullTrialSummaryMetrics(
 	partition := customMetricGroupToPartitionType(metricGroup)
 	jsonPath := model.TrialMetricsJSONPath(partition == ValidationMetric)
 	//nolint: execinquery
-	rows, err := tx.QueryContext(ctx, db.queries.getOrLoad("calculate-full-trial-summary-metrics"),
+	rows, err := tx.QueryContext(ctx, db.queries.GetOrLoad("calculate-full-trial-summary-metrics"),
 		trialID, jsonPath, partition, metricGroup)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting full compute trial %d summary metrics", trialID)

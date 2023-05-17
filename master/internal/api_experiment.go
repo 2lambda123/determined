@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -28,7 +29,7 @@ import (
 	"github.com/determined-ai/determined/master/internal/user"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -49,6 +50,7 @@ import (
 	"github.com/determined-ai/determined/master/pkg/schemas"
 	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
 	"github.com/determined-ai/determined/master/pkg/searcher"
+	"github.com/determined-ai/determined/master/pkg/tasks"
 	"github.com/determined-ai/determined/proto/pkg/apiv1"
 	"github.com/determined-ai/determined/proto/pkg/checkpointv1"
 	"github.com/determined-ai/determined/proto/pkg/experimentv1"
@@ -74,8 +76,14 @@ var SummaryMetricStatistics = []string{"count", "last", "max", "min", "sum"}
 
 const maxConcurrentDeletes = 10
 
-// Enrich one or more experiments by converting Active state to Queued/Pulling/Starting/Running.
 func (a *apiServer) enrichExperimentState(experiments ...*experimentv1.Experiment) error {
+	return a.enrichExperimentStateTx(context.Background(), db.Bun(), experiments...)
+}
+
+// Enrich one or more experiments by converting Active state to Queued/Pulling/Starting/Running.
+func (a *apiServer) enrichExperimentStateTx(
+	ctx context.Context, idb bun.IDB, experiments ...*experimentv1.Experiment,
+) error {
 	// filter allocations by JobIDs on this page of experiments
 	jobFilter := make([]string, 0, len(experiments))
 	for _, exp := range experiments {
@@ -84,11 +92,19 @@ func (a *apiServer) enrichExperimentState(experiments ...*experimentv1.Experimen
 
 	// get active experiments by JobID
 	tasks := []experimentAllocation{}
-	err := a.m.db.Query(
-		"aggregate_allocation_state_by_job",
-		&tasks,
-		strings.Join(jobFilter, ","),
-	)
+	query := `
+	SELECT
+	j.job_id AS job,
+	BOOL_OR(CASE WHEN a.state = 'PULLING' THEN true ELSE false END) AS pulling,
+	BOOL_OR(CASE WHEN a.state = 'STARTING' THEN true ELSE false END) AS starting,
+	BOOL_OR(CASE WHEN a.state = 'RUNNING' THEN true ELSE false END) AS running
+	FROM jobs j
+	JOIN tasks t ON t.job_id = j.job_id
+	JOIN allocations a ON a.task_id = t.task_id
+	WHERE j.job_id in (SELECT unnest(string_to_array(?, ',')))
+	GROUP BY j.job_id
+	`
+	err := db.MatchSentinelError(idb.NewRaw(query, strings.Join(jobFilter, ",")).Scan(ctx, &tasks))
 	if err != nil {
 		return err
 	}
@@ -137,12 +153,75 @@ func isActiveExperimentState(state experimentv1.State) bool {
 func (a *apiServer) getExperiment(
 	ctx context.Context, curUser model.User, experimentID int,
 ) (*experimentv1.Experiment, error) {
+	return a.getExperimentTx(ctx, db.Bun(), curUser, experimentID)
+}
+
+// Return a single experiment with enriched state, if the user can access it.
+func (a *apiServer) getExperimentTx(
+	ctx context.Context, idb bun.IDB, curUser model.User, experimentID int,
+) (*experimentv1.Experiment, error) {
 	expNotFound := api.NotFoundErrs("experiment", fmt.Sprint(experimentID), true)
 	exp := &experimentv1.Experiment{}
-	if err := a.m.db.QueryProto("get_experiment", exp, experimentID); errors.Is(err, db.ErrNotFound) {
+	expMap := map[string]interface{}{}
+	query := `
+	WITH trial_ids AS (
+		SELECT id
+		FROM trials
+		WHERE experiment_id = ?
+		ORDER BY id
+	)
+	SELECT
+		e.id AS id,
+		e.original_config AS original_config,
+		e.config AS config,
+		e.config->>'name' AS name,
+		e.config->>'description' AS description,
+		e.config->'labels' AS labels,
+		e.config->'resources'->>'resource_pool' as resource_pool,
+		e.config->'searcher'->'name' as searcher_type,
+		e.notes AS notes,
+		to_json(e.start_time)#>>'{}' AS start_time,
+		to_json(e.end_time)#>>'{}' AS end_time,
+		'STATE_' || e.state AS state,
+		e.archived AS archived,
+		e.progress AS progress,
+		e.job_id AS job_id,
+		e.parent_id AS forked_from,
+		e.owner_id AS user_id,
+		e.checkpoint_size AS checkpoint_size,
+		e.checkpoint_count AS checkpoint_count,
+		u.username AS username,
+		(SELECT json_agg(id) FROM trial_ids) AS trial_ids,
+		  (SELECT count(id) FROM trial_ids) AS num_trials,
+		p.id AS project_id,
+		p.name AS project_name,
+		p.user_id AS project_owner_id,
+		w.id AS workspace_id,
+		w.name AS workspace_name,
+		(w.archived OR p.archived) AS parent_archived
+	FROM
+		experiments e
+	JOIN users u ON e.owner_id = u.id
+	LEFT JOIN projects p ON e.project_id = p.id
+	LEFT JOIN workspaces w ON p.workspace_id = w.id
+	WHERE e.id = ?
+	`
+	err := db.MatchSentinelError(idb.NewRaw(query, experimentID, experimentID).Scan(ctx, &expMap))
+	if errors.Is(err, db.ErrNotFound) {
 		return nil, expNotFound
 	} else if err != nil {
 		return nil, errors.Wrapf(err, "error fetching experiment from database: %d", experimentID)
+	}
+	// Cast string -> []byte `ParseMapToProto` magic.
+	jsonFields := []string{"config", "trial_ids", "labels"}
+	for _, field := range jsonFields {
+		switch sVal := expMap[field].(type) {
+		case string:
+			expMap[field] = []byte(sVal)
+		}
+	}
+	if err := db.ParseMapToProto(expMap, exp); err != nil {
+		return nil, fmt.Errorf("failed to parse map into proto: %w", err)
 	}
 
 	modelExp, err := model.ExperimentFromProto(exp)
@@ -153,11 +232,8 @@ func (a *apiServer) getExperiment(
 		CanGetExperiment(ctx, curUser, modelExp); authErr != nil {
 		return nil, authz.SubIfUnauthorized(authErr, expNotFound)
 	}
-	sort.Slice(exp.TrialIds, func(i, j int) bool {
-		return exp.TrialIds[i] < exp.TrialIds[j]
-	})
 
-	if err = a.enrichExperimentState(exp); err != nil {
+	if err = a.enrichExperimentStateTx(ctx, idb, exp); err != nil {
 		return nil, err
 	}
 
@@ -238,7 +314,7 @@ func (a *apiServer) PostSearcherOperations(
 	case err != nil:
 		return nil, status.Errorf(codes.Internal, "failed to post operations: %v", err)
 	default:
-		logrus.Infof("posted operations %v", req.SearcherOperations)
+		log.Infof("posted operations %v", req.SearcherOperations)
 		return resp, nil
 	}
 }
@@ -279,7 +355,7 @@ func (a *apiServer) GetExperiment(
 		if !strings.Contains(err.Error(), sproto.ErrJobNotFound(jobID).Error()) {
 			return nil, err
 		}
-		logrus.WithError(err).Debugf("asking for job summary")
+		log.WithError(err).Debugf("asking for job summary")
 	} else {
 		resp.JobSummary = jobSummary
 	}
@@ -313,13 +389,13 @@ func (a *apiServer) DeleteExperiment(
 
 	go func() {
 		if _, err := a.deleteExperiments([]*model.Experiment{e}, &curUser); err != nil {
-			logrus.WithError(err).Errorf("deleting experiment %d", e.ID)
+			log.WithError(err).Errorf("deleting experiment %d", e.ID)
 			e.State = model.DeleteFailedState
 			if err := a.m.db.SaveExperimentState(e); err != nil {
-				logrus.WithError(err).Errorf("transitioning experiment %d to %s", e.ID, e.State)
+				log.WithError(err).Errorf("transitioning experiment %d to %s", e.ID, e.State)
 			}
 		} else {
-			logrus.Infof("experiment %d deleted successfully", e.ID)
+			log.Infof("experiment %d deleted successfully", e.ID)
 		}
 	}()
 
@@ -342,7 +418,7 @@ func (a *apiServer) DeleteExperiments(
 		if err != nil {
 			// set experiment state to DeleteFailed
 			for _, id := range expIDs {
-				logrus.WithError(err).Errorf("deleting experiment %d", id)
+				log.WithError(err).Errorf("deleting experiment %d", id)
 			}
 			_, err = db.Bun().NewUpdate().
 				ModelTableExpr("experiments as e").
@@ -351,13 +427,13 @@ func (a *apiServer) DeleteExperiments(
 				Exec(ctx)
 			if err != nil {
 				for _, id := range expIDs {
-					logrus.WithError(err).Errorf("transitioning experiment %d to %s", id,
+					log.WithError(err).Errorf("transitioning experiment %d to %s", id,
 						model.DeleteFailedState)
 				}
 			}
 		} else {
 			for _, id := range expIDs {
-				logrus.WithError(err).Errorf("deleting experiment %d", id)
+				log.WithError(err).Errorf("deleting experiment %d", id)
 			}
 		}
 	}()
@@ -383,7 +459,7 @@ func (a *apiServer) deleteExperiments(exps []*model.Experiment, userModel *model
 
 			agentUserGroup, err := user.GetAgentUserGroup(*exp.OwnerID, exp)
 			if err != nil {
-				logrus.WithError(err).Errorf("failed to delete experiment: %d", exp.ID)
+				log.WithError(err).Errorf("failed to delete experiment: %d", exp.ID)
 				return
 			}
 
@@ -394,7 +470,7 @@ func (a *apiServer) deleteExperiments(exps []*model.Experiment, userModel *model
 				0,
 			)
 			if err != nil {
-				logrus.WithError(err).Errorf("failed to delete experiment: %d", exp.ID)
+				log.WithError(err).Errorf("failed to delete experiment: %d", exp.ID)
 				return
 			}
 
@@ -408,7 +484,7 @@ func (a *apiServer) deleteExperiments(exps []*model.Experiment, userModel *model
 					true, agentUserGroup, userModel, nil,
 				)
 				if gcErr := a.m.system.MustActorOf(addr, ckptGCTask).AwaitTermination(); gcErr != nil {
-					logrus.WithError(gcErr).Errorf("failed to gc checkpoints for experiment")
+					log.WithError(gcErr).Errorf("failed to gc checkpoints for experiment")
 					return
 				}
 			}
@@ -418,11 +494,11 @@ func (a *apiServer) deleteExperiments(exps []*model.Experiment, userModel *model
 				JobID: exp.JobID,
 			})
 			if err != nil {
-				logrus.WithError(err).Errorf("requesting cleanup of resource mananger resources")
+				log.WithError(err).Errorf("requesting cleanup of resource mananger resources")
 				return
 			}
 			if err = <-resp.Err; err != nil {
-				logrus.WithError(err).Errorf("cleaning up resource mananger resources")
+				log.WithError(err).Errorf("cleaning up resource mananger resources")
 				return
 			}
 			successfulExpIDs <- exp.ID
@@ -1303,6 +1379,25 @@ func (a *apiServer) GetExperimentCheckpoints(
 	return resp, a.paginate(&resp.Pagination, &resp.Checkpoints, req.Offset, req.Limit)
 }
 
+func (a *apiServer) createUnmanagedExperimentTx(
+	ctx context.Context, idb bun.IDB, dbExp *model.Experiment, activeConfig expconf.ExperimentConfigV0,
+	taskSpec *tasks.TaskSpec, user *model.User,
+) (*apiv1.CreateExperimentResponse, error) {
+	e, _, err := newUnmanagedExperiment(ctx, idb, a.m, dbExp, activeConfig, taskSpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make new unmanaged experiment: %w", err)
+	}
+
+	protoExp, err := a.getExperimentTx(ctx, idb, *user, e.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get experiment: %w", err)
+	}
+	return &apiv1.CreateExperimentResponse{
+		Experiment: protoExp,
+		Config:     protoutils.ToStruct(activeConfig),
+	}, nil
+}
+
 func (a *apiServer) CreateExperiment(
 	ctx context.Context, req *apiv1.CreateExperimentRequest,
 ) (*apiv1.CreateExperimentResponse, error) {
@@ -1351,19 +1446,7 @@ func (a *apiServer) CreateExperiment(
 	}
 
 	if req.Unmanaged != nil && *req.Unmanaged {
-		e, _, err := newUnmanagedExperiment(a.m, dbExp, activeConfig, taskSpec)
-		if err != nil {
-			return nil, err
-		}
-
-		protoExp, err := a.getExperiment(ctx, *user, e.ID)
-		if err != nil {
-			return nil, err
-		}
-		return &apiv1.CreateExperimentResponse{
-			Experiment: protoExp,
-			Config:     protoutils.ToStruct(activeConfig),
-		}, nil
+		return a.createUnmanagedExperimentTx(ctx, db.Bun(), dbExp, activeConfig, taskSpec, user)
 	}
 	// Check user has permission for what they are trying to do
 	// before actually saving the experiment.
@@ -1395,6 +1478,68 @@ func (a *apiServer) CreateExperiment(
 		Config:     protoutils.ToStruct(activeConfig),
 		Warnings:   command.LaunchWarningToProto(launchWarnings),
 	}, nil
+}
+
+func (a *apiServer) PutExperiment(
+	ctx context.Context, req *apiv1.PutExperimentRequest,
+) (*apiv1.PutExperimentResponse, error) {
+	if req.CreateExperimentRequest.Unmanaged == nil || !*req.CreateExperimentRequest.Unmanaged {
+		return nil, errors.New("only unmanaged experiments are supported")
+	}
+
+	if req.CreateExperimentRequest.ParentId != 0 {
+		return nil, errors.New("can't fork into an unmanaged experiment")
+	}
+
+	user, _, err := grpcutil.GetUser(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get the user: %s", err)
+	}
+
+	dbExp, activeConfig, p, taskSpec, err := a.m.parseCreateExperiment(
+		req.CreateExperimentRequest, user,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse exp config: %w", err)
+	}
+	if err = exputil.AuthZProvider.Get().CanCreateExperiment(ctx, *user, p); err != nil {
+		return nil, status.Errorf(codes.PermissionDenied, err.Error())
+	}
+
+	var innerResp *apiv1.CreateExperimentResponse
+
+	dbExp.ExternalExperimentID = &req.ExternalExperimentId
+	// TODO(ilia): Ideally, we'd create experiments atomically in a tx, but it requires a lot of
+	// legacy db -> bun refactoring.
+	// This select is *slightly* redundant as `createUnmanagedExperiment` will do UPSERT.
+	existingDBExp, err := db.ExperimentByExternalIDTx(ctx, db.Bun(), req.ExternalExperimentId)
+	switch {
+	case errors.Is(err, db.ErrNotFound):
+		innerResp, err = a.createUnmanagedExperimentTx(ctx, db.Bun(), dbExp, activeConfig, taskSpec, user)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to create unmanaged experiment: %w", err)
+		}
+	case err != nil:
+		return nil, fmt.Errorf("failed to fetch experiment by external id: %w", err)
+	default:
+		// TODO(ilia): Consider updating some experiment fields.
+		protoExp, err := a.getExperiment(ctx, *user, existingDBExp.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get experiment: %w", err)
+		}
+		innerResp = &apiv1.CreateExperimentResponse{
+			Experiment: protoExp,
+			Config:     protoutils.ToStruct(activeConfig),
+		}
+	}
+
+	resp := apiv1.PutExperimentResponse{
+		Experiment: innerResp.Experiment,
+		Config:     innerResp.Config,
+	}
+
+	return &resp, nil
 }
 
 var (
@@ -2279,10 +2424,10 @@ func (a *apiServer) SearchExperiments(
 	return resp, nil
 }
 
-func (a *apiServer) CreateTrial(
-	ctx context.Context, req *apiv1.CreateTrialRequest,
+func (a *apiServer) createTrialTx(
+	ctx context.Context, idb bun.IDB, req *apiv1.CreateTrialRequest, externalTrialID *string,
 ) (*apiv1.CreateTrialResponse, error) {
-	if req.Unmanaged != true {
+	if !req.Unmanaged {
 		return nil, errors.New("only unmanaged trials are supported")
 	}
 
@@ -2292,15 +2437,15 @@ func (a *apiServer) CreateTrial(
 		return nil, err
 	}
 
-	// HACK: needed for ``experimentIDFromTrialTaskID``.
-	taskID := model.TaskID(fmt.Sprintf("%d.%s", exp.ID, model.NewTaskID()))
-
 	if !exp.Unmanaged {
 		return nil, errors.New("trials can only be created on unmanaged experiments")
 	}
 
+	// HACK: needed for ``experimentIDFromTrialTaskID``.
+	taskID := model.TaskID(fmt.Sprintf("%d.%s", exp.ID, model.NewTaskID()))
+
 	trialModel := model.NewTrial(
-		model.CompletedState,
+		model.PausedState,
 		taskID,
 		model.RequestID{},
 		exp.ID,
@@ -2308,7 +2453,11 @@ func (a *apiServer) CreateTrial(
 		nil,
 		0)
 
-	if err := a.m.db.AddTask(&model.Task{
+	if externalTrialID != nil {
+		trialModel.ExternalTrialID = externalTrialID
+	}
+
+	if err := db.AddTaskTx(ctx, idb, &model.Task{
 		TaskID:     trialModel.TaskID,
 		TaskType:   model.TaskTypeTrial,
 		StartTime:  time.Now(),
@@ -2318,20 +2467,184 @@ func (a *apiServer) CreateTrial(
 		return nil, err
 	}
 
-	if err := a.m.db.AddTrial(trialModel); err != nil {
+	if err := db.AddTrialTx(ctx, idb, trialModel); err != nil {
 		return nil, err
 	}
 
-	resp := &apiv1.CreateTrialResponse{Trial: &trialv1.Trial{}}
+	trialRes, err := trials.ProtoGetTrialsPlusTx(ctx, idb, []int{trialModel.ID})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get trial %d", trialModel.ID)
+	}
+	resp := &apiv1.CreateTrialResponse{Trial: trialRes[0]}
+
+	return resp, nil
+}
+
+// CreateTrial creates a trial.
+func (a *apiServer) CreateTrial(
+	ctx context.Context, req *apiv1.CreateTrialRequest,
+) (*apiv1.CreateTrialResponse, error) {
+	var resp *apiv1.CreateTrialResponse
+	err := db.Bun().RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		res, err := a.createTrialTx(ctx, tx, req, nil)
+		if err != nil {
+			return err
+		}
+		resp = res
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// PutTrial puts a trial.
+func (a *apiServer) PutTrial(ctx context.Context, req *apiv1.PutTrialRequest) (
+	*apiv1.PutTrialResponse, error,
+) {
+	if !req.CreateTrialRequest.Unmanaged {
+		return nil, errors.New("only unmanaged trials are supported")
+	}
+
+	_, _, err := a.getExperimentAndCheckCanDoActions(ctx, int(req.CreateTrialRequest.ExperimentId),
+		exputil.AuthZProvider.Get().CanEditExperiment)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch the existing trial.
+	var trial trials.Trial
+
+	// We will opportunistically return a response, so `RunInTx` is not the best fit.
+	tx, err := db.Bun().BeginTx(ctx, nil)
+	defer func() {
+		txErr := tx.Rollback()
+		if txErr != nil && txErr != sql.ErrTxDone {
+			log.WithError(txErr).Error("error rolling back transaction in PutTrial")
+		}
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.NewRaw(`LOCK TABLE trials`).Exec(ctx); err != nil {
+		return nil, err
+	}
+	err = tx.NewSelect().Model(&trial).
+		Column("id").
+		Where("external_trial_id = ?", req.ExternalTrialId).
+		Scan(ctx)
+	if err != nil {
+		err = db.MatchSentinelError(err)
+		if errors.Is(err, db.ErrNotFound) {
+			innerResp, err := a.createTrialTx(ctx, tx, req.CreateTrialRequest, &req.ExternalTrialId)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create trial: %w", err)
+			}
+			if err = tx.Commit(); err != nil {
+				return nil, fmt.Errorf("failed to commit tx: %w", err)
+			}
+
+			return &apiv1.PutTrialResponse{Trial: innerResp.Trial}, err
+		}
+
+		return nil, err
+	}
+	if trial.ExperimentID != int(req.CreateTrialRequest.ExperimentId) {
+		return nil, fmt.Errorf("submitted experiment id does not match the existing value")
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit tx: %w", err)
+	}
+
+	// TODO(ilia): Patch trial fields.
+
+	resp := &apiv1.PutTrialResponse{Trial: &trialv1.Trial{}}
 
 	if err := a.m.db.QueryProtof(
 		"proto_get_trials_plus",
 		[]any{"($1::int, $2::int)"},
 		resp.Trial,
-		trialModel.ID,
+		trial.ID,
 		1,
 	); err != nil {
-		return nil, errors.Wrapf(err, "failed to get trial %d", trialModel.ID)
+		return nil, errors.Wrapf(err, "failed to get trial %d", trial.ID)
+	}
+
+	return resp, nil
+}
+
+// PatchTrial patches a trial.
+func (a *apiServer) PatchTrial(ctx context.Context, req *apiv1.PatchTrialRequest) (
+	*apiv1.PatchTrialResponse, error,
+) {
+	curUser, _, err := grpcutil.GetUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	trialID := int(req.TrialId)
+	exp, err := db.ExperimentByTrialID(ctx, trialID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = exputil.AuthZProvider.Get().CanEditExperimentsMetadata(
+		ctx, *curUser, exp); err != nil {
+		return nil, status.Errorf(codes.PermissionDenied, err.Error())
+	}
+
+	if !exp.Unmanaged {
+		return nil, errors.New("only unmanaged trials are supported")
+	}
+
+	obj := trials.Trial{
+		ID:           trialID,
+		LastActivity: ptrs.Ptr(time.Now()),
+	}
+
+	columns := []string{"last_activity"}
+
+	if req.State != nil {
+		obj.State = model.State(strings.TrimPrefix(req.State.String(), "STATE_"))
+		columns = append(columns, "state")
+		if model.TerminalStates[obj.State] {
+			obj.EndTime = ptrs.Ptr(time.Now())
+			columns = append(columns, "end_time")
+		}
+	}
+
+	err = db.Bun().RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		_, err := db.Bun().NewUpdate().Model(&obj).Column(columns...).WherePK().Exec(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to update trial state: %w", err)
+		}
+
+		err = trials.UpdateUnmanagedExperimentStatesTx(ctx, tx, []*model.Experiment{exp})
+		if err != nil {
+			return fmt.Errorf("failed to update experiment state: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update state: %w", err)
+	}
+
+	resp := &apiv1.PatchTrialResponse{Trial: &trialv1.Trial{}}
+
+	if err := a.m.db.QueryProtof(
+		"proto_get_trials_plus",
+		[]any{"($1::int, $2::int)"},
+		resp.Trial,
+		trialID,
+		1,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get trial %d: %w", trialID, err)
 	}
 
 	return resp, nil

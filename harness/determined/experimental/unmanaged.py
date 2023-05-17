@@ -1,20 +1,47 @@
 import io
 import logging
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Callable, Optional, Tuple, TypeVar, Union
 
 import determined as det
-from determined import core, tensorboard
-from determined.common import api, storage, yaml
+from determined import core
+from determined.common import api, yaml
 from determined.common.api import bindings
-from determined.core._context import Context, _get_storage_manager, _install_stacktrace_on_sigusr1
 from determined.experimental import Determined
 
 logger = logging.getLogger("determined.experimental.unmanaged")
 
 
-# TODO: Missing unmanaged / detached mode features:
-# - Add unmanaged experiment state management.
-# - Make config.entrypoint optional.
+T = TypeVar("T")
+
+
+def run_on_rank_0_and_broadcast(
+    func: Callable[[], T],
+    distributed: Optional[core.DistributedContext] = None,
+) -> T:
+    result = None
+
+    if distributed is None or distributed.rank == 0:
+        result = func()
+    if distributed is not None:
+        result = distributed.broadcast(result)
+
+    assert result
+
+    return result
+
+
+def _create_unmanaged_experiment(
+    client: Determined,
+    config_text: str,
+) -> int:
+    sess = client._session
+
+    req1 = bindings.v1CreateExperimentRequest(config=config_text, unmanaged=True)
+    resp1 = bindings.post_CreateExperiment(session=sess, body=req1)
+
+    exp_id = resp1.experiment.id
+
+    return exp_id
 
 
 def create_unmanaged_experiment(
@@ -22,23 +49,39 @@ def create_unmanaged_experiment(
     config_text: str,
     distributed: Optional[core.DistributedContext] = None,
 ) -> int:
-    exp_id = None
+    return run_on_rank_0_and_broadcast(
+        lambda: _create_unmanaged_experiment(client, config_text), distributed
+    )
 
-    if distributed is None or distributed.rank == 0:
-        sess = client._session
 
-        req1 = bindings.v1CreateExperimentRequest(config=config_text, unmanaged=True)
-        resp1 = bindings.post_CreateExperiment(session=sess, body=req1)
+def _put_unmanaged_experiment(
+    client: Determined,
+    config_text: str,
+    external_experiment_id: str,
+) -> int:
+    sess = client._session
 
-        exp_id = resp1.experiment.id
-    if distributed is not None:
-        exp_id = distributed.broadcast(exp_id)
-
-    assert exp_id
+    req = bindings.v1CreateExperimentRequest(config=config_text, unmanaged=True)
+    resp = bindings.put_PutExperiment(
+        session=sess, body=req, externalExperimentId=external_experiment_id
+    )
+    exp_id = resp.experiment.id
 
     return exp_id
 
 
+def put_unmanaged_experiment(
+    client: Determined,
+    config_text: str,
+    external_experiment_id: str,
+    distributed: Optional[core.DistributedContext] = None,
+) -> int:
+    return run_on_rank_0_and_broadcast(
+        lambda: _put_unmanaged_experiment(client, config_text, external_experiment_id), distributed
+    )
+
+
+# TODO(ilia): add a singleton helper to get the URL for the current experiment / trial.
 def url_reverse_webui_exp_view(client: Determined, exp_id: int) -> str:
     return api.request.make_url(client._master, f"/det/experiments/{exp_id}")
 
@@ -71,17 +114,62 @@ def create_unmanaged_trial(
     hparams: Optional[dict] = None,
     distributed: Optional[core.DistributedContext] = None,
 ) -> Tuple[int, str]:
-    trial_id, task_id = None, None
+    return run_on_rank_0_and_broadcast(
+        lambda: _create_unmanaged_trial(client, exp_id=exp_id, hparams=hparams), distributed
+    )
 
-    if distributed is None or distributed.rank == 0:
-        trial_id, task_id = _create_unmanaged_trial(client, exp_id=exp_id, hparams=hparams)
-    if distributed is not None:
-        trial_id, task_id = distributed.broadcast([trial_id, task_id])
 
-    assert trial_id
+def _put_unmanaged_trial(
+    client: Determined,
+    exp_id: int,
+    external_trial_id: str,
+    hparams: Optional[dict] = None,
+) -> Tuple[int, str]:
+    sess = client._session
+    assert sess
+
+    req2 = bindings.v1CreateTrialRequest(experimentId=exp_id, hparams=hparams, unmanaged=True)
+    resp2 = bindings.put_PutTrial(session=sess, body=req2, externalTrialId=external_trial_id)
+
+    trial_id = resp2.trial.id
+    task_id = resp2.trial.taskId
     assert task_id
-
     return trial_id, task_id
+
+
+def put_unmanaged_trial(
+    client: Determined,
+    exp_id: int,
+    external_trial_id: str,
+    hparams: Optional[dict] = None,
+    distributed: Optional[core.DistributedContext] = None,
+) -> Tuple[int, str]:
+    return run_on_rank_0_and_broadcast(
+        lambda: _put_unmanaged_trial(client, exp_id, external_trial_id, hparams), distributed
+    )
+
+
+def _start_trial(
+    client: Determined,
+    trial_id: int,
+    resume: bool,
+) -> bindings.v1StartTrialResponse:
+    sess = client._session
+    assert sess
+
+    req = bindings.v1StartTrialRequest(trialId=trial_id, resume=resume)
+    resp = bindings.post_StartTrial(session=sess, body=req, trialId=trial_id)
+
+    return resp
+
+
+def start_trial(
+    client: Determined,
+    trial_id: int,
+    resume: bool,
+    distributed: Optional[core.DistributedContext] = None,
+) -> bindings.v1StartTrialResponse:
+    return run_on_rank_0_and_broadcast(lambda: _start_trial(client, trial_id, resume), distributed)
 
 
 def create_unmanaged_trial_cluster_info(
@@ -96,7 +184,13 @@ def create_unmanaged_trial_cluster_info(
     )
 
     return build_unmanaged_trial_cluster_info(
-        client, exp_id, trial_id, task_id, config_text, hparams
+        client,
+        exp_id,
+        trial_id,
+        task_id,
+        config_text,
+        hparams,
+        distributed=distributed,
     )
 
 
@@ -105,8 +199,10 @@ def build_unmanaged_trial_cluster_info(
     exp_id: int,
     trial_id: int,
     task_id: str,
-    config_text: str,
+    config_text: str,  # TODO(ilia): we could load it from server.
     hparams: Optional[dict] = None,
+    resume: bool = True,
+    distributed: Optional[core.DistributedContext] = None,
 ) -> det.ClusterInfo:
     sess = client._session
     assert sess
@@ -114,6 +210,8 @@ def build_unmanaged_trial_cluster_info(
     cluster_id = _get_cluster_id(sess)
     assert sess._auth
     token = sess._auth.get_session_token(True)
+
+    resp = start_trial(client, trial_id, resume, distributed)
 
     return det.ClusterInfo(
         master_url=client._master,
@@ -130,11 +228,12 @@ def build_unmanaged_trial_cluster_info(
             trial_seed=0,
             hparams=hparams or {},
             config=yaml.safe_load(io.StringIO(config_text)),
-            steps_completed=0,
-            trial_run_id=0,
+            steps_completed=resp.stepsCompleted,
+            trial_run_id=resp.trialRunId,
             debug=False,
             inter_node_network_interface=None,
         ),
+        latest_checkpoint=resp.latestCheckpoint,
         rendezvous_info=det.RendezvousInfo(["127.0.0.1"], 0, [0]),
     )
 
@@ -151,102 +250,66 @@ def create_unmanaged_cluster_info(
     )
 
 
-def init(
-    *,
+def get_or_create_experiment_and_trial(
+    client: Determined,
+    config_text: str,
+    experiment_id: Optional[Union[str, int]] = None,
+    trial_id: Optional[Union[str, int]] = None,
+    hparams: Optional[dict] = None,
     distributed: Optional[core.DistributedContext] = None,
-    checkpoint_storage: Optional[Union[str, Dict[str, Any]]] = None,
-    preempt_mode: core.PreemptMode = core.PreemptMode.WorkersAskChief,
-    tensorboard_mode: core.TensorboardMode = core.TensorboardMode.AUTO,
-    unmanaged_info: Optional[det.ClusterInfo] = None,
-    client: Optional[Determined] = None,
-) -> Context:
-    if unmanaged_info is None:
-        raise ValueError(
-            "for unmanaged mode context, you must provide the `unmanaged_info` object. "
-            "Otherwise, use `det.core.init`."
-        )
-
-    if client is None:
-        session = det.experimental.client._get_singleton_session()
-    else:
-        session = client._session
-
-    # Reported, unmanaged, on- or off-cluster.
-    info = unmanaged_info
-
-    distributed = distributed or core.DummyDistributedContext()
-
-    # At present, we only support tensorboards in Trial tasks.
-    tbd_writer = None
-
-    train = None
-    searcher = None
-    tensorboard_manager = None
-
-    storage_manager = _get_storage_manager(checkpoint_storage)
-
-    if info.task_type == "TRIAL":
-        # Prepare the tensorboard hooks.
-        tensorboard_manager = tensorboard.build(
-            info.cluster_id,
-            str(info.trial.experiment_id),
-            str(info.trial.trial_id),
-            info.trial._config["checkpoint_storage"],
-            container_path=None,  # No bind mounts for unmanaged tasks.
-            async_upload=True,
-        )
-        if tensorboard_mode == core.TensorboardMode.AUTO:
-            tbd_writer = tensorboard.get_metric_writer()
-
-        train = core.TrainContext(
-            session,
-            info.trial.trial_id,
-            info.trial._trial_run_id,
-            info.trial.experiment_id,
-            distributed,
-            tensorboard_mode,
-            tensorboard_manager,
-            tbd_writer,
-        )
-        units = core._parse_searcher_units(info.trial._config)
-        searcher = core.SearcherContext(
-            session,
-            distributed,
-            info.trial.trial_id,
-            info.trial._trial_run_id,
-            info.allocation_id,
-            units,
-        )
-
-        if storage_manager is None:
-            storage_manager = storage.build(
-                info.trial._config["checkpoint_storage"],
-                container_path=None,  # No bind mounts for unmanaged tasks.
+) -> det.ClusterInfo:
+    if experiment_id is None:
+        if trial_id is None:
+            exp_id = create_unmanaged_experiment(client, config_text, distributed)
+            trial_id, task_id = create_unmanaged_trial(client, exp_id, hparams, distributed)
+            return build_unmanaged_trial_cluster_info(
+                client,
+                exp_id,
+                trial_id,
+                task_id,
+                config_text,
+                hparams,
+                distributed=distributed,
             )
-
-        checkpoint = core.CheckpointContext(
-            distributed,
-            storage_manager,
-            session,
-            info.task_id,
-            None,  # No allocations when off-cluster.
-            tensorboard_mode,
-            tensorboard_manager,
-        )
-
-        # At present, detached mode does not support preemption.
-        preempt = core.DummyPreemptContext(distributed, preempt_mode)
-
+        elif isinstance(trial_id, int):
+            raise NotImplementedError
+        elif isinstance(trial_id, str):
+            # TODO(ilia): add GetExperimentByExternalTrialId.
+            raise NotImplementedError
+    elif isinstance(experiment_id, int):
+        if trial_id is None:
+            raise NotImplementedError
+        elif isinstance(trial_id, int):
+            raise NotImplementedError
+        elif isinstance(trial_id, str):
+            raise NotImplementedError
+    elif isinstance(experiment_id, str):
+        if trial_id is None:
+            exp_id = put_unmanaged_experiment(client, config_text, experiment_id, distributed)
+            trial_id, task_id = create_unmanaged_trial(client, exp_id, hparams, distributed)
+            return build_unmanaged_trial_cluster_info(
+                client,
+                exp_id,
+                trial_id,
+                task_id,
+                config_text,
+                hparams,
+                distributed=distributed,
+            )
+        elif isinstance(trial_id, int):
+            raise NotImplementedError
+        elif isinstance(trial_id, str):
+            exp_id = put_unmanaged_experiment(client, config_text, experiment_id, distributed)
+            trial_id, task_id = put_unmanaged_trial(client, exp_id, trial_id, hparams, distributed)
+            return build_unmanaged_trial_cluster_info(
+                client,
+                exp_id,
+                trial_id,
+                task_id,
+                config_text,
+                hparams,
+                distributed=distributed,
+            )
     else:
-        raise NotImplementedError("unmanaged mode is not supported for non-trial tasks")
-
-    _install_stacktrace_on_sigusr1()
-
-    return Context(
-        distributed=distributed,
-        checkpoint=checkpoint,
-        preempt=preempt,
-        train=train,
-        searcher=searcher,
-        _tensorboard_manager=tensorboard_manager,
-    )
+        raise ValueError(f"experiment_id is neither int nor string: {type(experiment_id)}")
+    raise ValueError(f"trial_id is neither int nor string: {type(trial_id)}")

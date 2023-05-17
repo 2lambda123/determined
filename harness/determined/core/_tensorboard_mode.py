@@ -20,3 +20,4 @@ class TensorboardMode(enum.Enum):
 
     AUTO = "AUTO"
     MANUAL = "MANUAL"
+    OFF = "OFF"

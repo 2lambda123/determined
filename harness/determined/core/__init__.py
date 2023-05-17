@@ -25,4 +25,14 @@ from determined.core._preempt import (
     _PreemptionWatcher,
     PreemptMode,
 )
+from determined.core._state_manager import (
+    StateManager,
+    ManagedTrialStateManager,
+    UnmanagedTrialStateManager,
+)
+from determined.core._log_shipper import (
+    LogShipper,
+    ManagedTrialLogShipper,
+    UnmanagedTrialLogShipper,
+)
 from determined.core._context import Context, init, _dummy_init

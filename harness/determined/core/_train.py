@@ -32,7 +32,7 @@ class TrainContext:
         exp_id: int,
         distributed: DistributedContext,
         tensorboard_mode: TensorboardMode,
-        tensorboard_manager: tensorboard.TensorboardManager,
+        tensorboard_manager: Optional[tensorboard.TensorboardManager],
         tbd_writer: Optional[tensorboard.BatchMetricWriter],
     ) -> None:
         self._session = session
@@ -40,6 +40,8 @@ class TrainContext:
         self._run_id = run_id
         self._exp_id = exp_id
         self._distributed = distributed
+        if tensorboard_mode != TensorboardMode.OFF and tensorboard_manager is None:
+            raise ValueError("either set TensorboardMode.OFF, or pass a tensorboard manager.")
         self._tensorboard_mode = tensorboard_mode
         self._tensorboard_manager = tensorboard_manager
         self._tbd_writer = tbd_writer
@@ -104,6 +106,7 @@ class TrainContext:
                     self._tbd_writer.on_validation_step_end(total_batches, metrics)
                 elif group == util._LEGACY_TRAINING:
                     self._tbd_writer.on_train_step_end(total_batches, metrics, batch_metrics)
+            assert self._tensorboard_manager is not None
             self._tensorboard_manager.sync()
 
     def report_training_metrics(
@@ -125,6 +128,9 @@ class TrainContext:
         """
         Get TensorBoard log directory path.
         """
+        if self._tensorboard_mode == TensorboardMode.OFF:
+            raise ValueError("tensorboard mode is OFF")
+        assert self._tensorboard_manager is not None
         return self._tensorboard_manager.base_path
 
     def upload_tensorboard_files(
@@ -143,6 +149,9 @@ class TrainContext:
         if self._tensorboard_mode == TensorboardMode.AUTO:
             raise RuntimeError("upload_tensorboard_files can only be used in MANUAL mode")
 
+        if self._tensorboard_mode == TensorboardMode.OFF:
+            raise ValueError("tensorboard mode is OFF")
+        assert self._tensorboard_manager is not None
         self._tensorboard_manager.sync(selector, mangler, self._distributed.rank)
 
     def _get_serializable_metrics(self, metrics: Dict[str, Any]) -> Set[str]:
