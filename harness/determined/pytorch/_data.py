@@ -259,7 +259,7 @@ class DataLoader:
                 # prefetch_factor became optional in 2.0.
                 if self.prefetch_factor is None and self.num_workers == 0:
                     self.prefetch_factor = 2
-                    
+
             extra_kwargs["prefetch_factor"] = self.prefetch_factor
             extra_kwargs["persistent_workers"] = self.persistent_workers
 
