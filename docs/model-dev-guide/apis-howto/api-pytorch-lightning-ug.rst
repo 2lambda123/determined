@@ -119,11 +119,6 @@ In addition, we also patched some ``LightningModule`` methods to make porting yo
 
    pip install pytorch_lightning==1.5.10 torchmetrics==0.5.1
 
-To learn about this API, start by reading the trial definitions from the following examples:
-
--  :download:`gan_mnist_pl.tgz </examples/gan_mnist_pl.tgz>`
--  :download:`mnist_pl.tgz </examples/mnist_pl.tgz>`
-
 ***********
  Load Data
 ***********
