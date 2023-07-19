@@ -26,11 +26,11 @@ by default in this version of Determined are described below.
 +-------------+--------------------------------------------------------------------------+
 | Environment | File Name                                                                |
 +=============+==========================================================================+
-| CPUs        | ``determinedai/environments:py-3.8-pytorch-1.12-tf-2.11-cpu-14cb565``    |
+| CPUs        | ``determinedai/environments-dev:py-3.8-pytorch-2.0-tf-2.11-cpu-df024d7``    |
 +-------------+--------------------------------------------------------------------------+
-| NVIDIA GPUs | ``determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-14cb565`` |
+| NVIDIA GPUs | ``determinedai/environments-dev:cuda-11.3-pytorch-2.0-tf-2.11-gpu-df024d7`` |
 +-------------+--------------------------------------------------------------------------+
-| AMD GPUs    | ``determinedai/environments:rocm-5.0-pytorch-1.10-tf-2.7-rocm-14cb565``  |
+| AMD GPUs    | ``determinedai/environments-dev:rocm-5.0-pytorch-1.10-tf-2.7-rocm-df024d7``  |
 +-------------+--------------------------------------------------------------------------+
 
 See :doc:`/model-dev-guide/prepare-container/set-environment-images` for the images Docker Hub

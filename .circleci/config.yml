@@ -39,7 +39,7 @@ parameters:
   # be referenced by --ee testing.
   default-pt-gpu-image:
     type: string
-    default: determinedai/environments:cuda-11.3-pytorch-1.12-gpu-14cb565
+    default: determinedai/environments-dev:cuda-11.3-pytorch-2.0-gpu-df024d7
   # Some python, go, and react dependencies are cached by circleci via `save_cache`/`restore_cache`.
   # If the dependencies stay the same, but the circleci code that would produce them is changed,
   # it may be necessary to invalidate the cache by incrementing this value.
@@ -229,7 +229,7 @@ commands:
       - when:
           condition: <<parameters.tf2>>
           steps:
-            - run: docker pull determinedai/environments:py-3.8-pytorch-1.12-tf-2.11-cpu-14cb565
+            - run: docker pull determinedai/environments-dev:py-3.8-pytorch-2.0-tf-2.11-cpu-df024d7
 
   login-docker:
     parameters:
@@ -1835,7 +1835,7 @@ jobs:
 
   test-unit-harness-gpu:
     docker:
-      - image: determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-0.23.3
+      - image: determinedai/environments-dev:cuda-11.3-pytorch-2.0-tf-2.11-gpu-0.24.0
     resource_class: determined-ai/container-runner-gpu
     steps:
       - run: mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -1858,7 +1858,7 @@ jobs:
 
   test-unit-harness-gpu-parallel:
     docker:
-      - image: determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-0.23.3
+      - image: determinedai/environments-dev:cuda-11.3-pytorch-2.0-tf-2.11-gpu-0.24.0
     resource_class: determined-ai/container-runner-multi-gpu
     steps:
       - run: mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -1881,7 +1881,7 @@ jobs:
 
   test-unit-harness-gpu-lightning:
     docker:
-      - image: determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-0.23.3
+      - image: determinedai/environments-dev:cuda-11.3-pytorch-2.0-tf-2.11-gpu-0.24.0
     resource_class: determined-ai/container-runner-gpu
     steps:
       - run: mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -1904,7 +1904,7 @@ jobs:
 
   test-unit-harness-gpu-deepspeed:
     docker:
-      - image: determinedai/environments:cuda-11.3-pytorch-1.10-deepspeed-0.8.3-gpu-0.23.3
+      - image: determinedai/environments-dev:cuda-11.3-pytorch-1.10-deepspeed-0.8.3-gpu-0.24.0
     resource_class: determined-ai/container-runner-gpu
     steps:
       - run: mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -2330,7 +2330,7 @@ jobs:
         type: string
         default: "1"
       environment-image:
-        default: determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-0.23.3
+        default: determinedai/environments-dev:cuda-11.3-pytorch-2.0-tf-2.11-gpu-0.24.0
         type: string
       accel-node-taints:
         type: string
