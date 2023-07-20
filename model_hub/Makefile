@@ -6,6 +6,7 @@ ARTIFACTS_DIR := /tmp/artifacts
 
 # Model-hub library environments will be built on top of the default GPU and CPU images in master/pkg/model/defaults.go
 DEFAULT_GPU_IMAGE := determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-14cb565
+MMDET_GPU_IMAGE := determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-14cb565
 
 ############REMINDER############
 # When bumping third-party library versions, remember to bump versions in
@@ -13,12 +14,12 @@ DEFAULT_GPU_IMAGE := determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gp
 ############REMINDER############
 
 # Transformers Args
-TRANSFORMERS_VERSION := 4.8.2
+TRANSFORMERS_VERSION := 4.31.0
 DATASETS_VERSION := 1.9.0
 TRANSFORMERS_ENVIRONMENT_ROOT := determinedai/model-hub-transformers
 # MMDetection Args
 MMCV_CUDA_VERSION := cu113 # Needs to match DEFAULT_GPU_IMAGE
-TORCH_VERSION := 1.12.0 # Needs to match DEFAULT_GPU_IMAGE
+MMDET_TORCH_VERSION := 1.12.0 # Needs to match DEFAULT_GPU_IMAGE
 MMCV_VERSION := 1.7.1 # Needs to support the above Torch version
 MMDETECTION_VERSION := 2.27.0
 MMDETECTION_ENVIRONMENT_ROOT := determinedai/model-hub-mmdetection
@@ -100,17 +101,17 @@ publish-transformers-dev:
 
 .PHONY: build-mmdetection-dev
 build-mmdetection-dev:
-	if [[ "$(DEFAULT_GPU_IMAGE)" != *"cuda-11.3"* ]]; then \
-	  echo "Expected $(DEFAULT_GPU_IMAGE) to have cuda version $(MMCV_CUDA_VERSION)."; \
+	if [[ "$(MMDET_GPU_IMAGE)" != *"cuda-11.3"* ]]; then \
+	  echo "Expected $(MMDET_GPU_IMAGE) to have cuda version $(MMCV_CUDA_VERSION)."; \
 	  exit 1; \
-	elif [[ "$(DEFAULT_GPU_IMAGE)" != *"pytorch-1.12"* ]]; then \
-	  echo "Expected $(DEFAULT_GPU_IMAGE) to have pytorch version $(TORCH_VERSION)."; \
+	elif [[ "$(MMDET_GPU_IMAGE)" != *"pytorch-1.12"* ]]; then \
+	  echo "Expected $(MMDET_GPU_IMAGE) to have pytorch version $(MMDET_TORCH_VERSION)."; \
 	  exit 1; \
 	else \
 	  docker build -f docker/Dockerfile.mmdetection \
-	  	  --build-arg BASE_IMAGE=$(DEFAULT_GPU_IMAGE) \
+	  	  --build-arg BASE_IMAGE=$(MMDET_GPU_IMAGE) \
 	  	  --build-arg MMCV_CUDA_VERSION=$(MMCV_CUDA_VERSION) \
-	  	  --build-arg TORCH_VERSION=$(TORCH_VERSION) \
+	  	  --build-arg TORCH_VERSION=$(MMDET_TORCH_VERSION) \
 	  	  --build-arg MMCV_VERSION=$(MMCV_VERSION) \
 	  	  --build-arg MMDETECTION_VERSION=$(MMDETECTION_VERSION) \
 	  	  --build-arg MODEL_HUB_VERSION=$(VERSION) \
@@ -148,17 +149,17 @@ publish-transformers:
 
 .PHONY: build-mmdetection
 build-mmdetection:
-	if [[ "$(DEFAULT_GPU_IMAGE)" != *"cuda-11.3"* ]]; then \
-	  echo "Expected $(DEFAULT_GPU_IMAGE) to have cuda version $(MMCV_CUDA_VERSION)."; \
+	if [[ "$(MMDET_GPU_IMAGE)" != *"cuda-11.3"* ]]; then \
+	  echo "Expected $(MMDET_GPU_IMAGE) to have cuda version $(MMCV_CUDA_VERSION)."; \
 	  exit 1; \
-	elif [[ "$(DEFAULT_GPU_IMAGE)" != *"pytorch-1.12"* ]]; then \
-	  echo "Expected $(DEFAULT_GPU_IMAGE) to have pytorch version $(TORCH_VERSION)."; \
+	elif [[ "$(MMDET_GPU_IMAGE)" != *"pytorch-1.12"* ]]; then \
+	  echo "Expected $(MMDET_GPU_IMAGE) to have pytorch version $(MMDET_TORCH_VERSION)."; \
 	  exit 1; \
 	else \
 	  docker build -f docker/Dockerfile.mmdetection \
-		  --build-arg BASE_IMAGE=$(DEFAULT_GPU_IMAGE) \
+		  --build-arg BASE_IMAGE=$(MMDET_GPU_IMAGE) \
 		  --build-arg MMCV_CUDA_VERSION=$(MMCV_CUDA_VERSION) \
-		  --build-arg TORCH_VERSION=$(TORCH_VERSION) \
+		  --build-arg TORCH_VERSION=$(MMDET_TORCH_VERSION) \
 		  --build-arg MMCV_VERSION=$(MMCV_VERSION) \
 		  --build-arg MMDETECTION_VERSION=$(MMDETECTION_VERSION) \
 		  --build-arg MODEL_HUB_VERSION=$(VERSION) \
