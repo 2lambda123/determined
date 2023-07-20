@@ -14,8 +14,8 @@ MMDET_GPU_IMAGE := determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-
 ############REMINDER############
 
 # Transformers Args
-TRANSFORMERS_VERSION := 4.8.2
-DATASETS_VERSION := 1.9.0
+TRANSFORMERS_VERSION := 4.31.0
+DATASETS_VERSION := 2.13.1
 TRANSFORMERS_ENVIRONMENT_ROOT := determinedai/model-hub-transformers
 # MMDetection Args
 MMCV_CUDA_VERSION := cu113 # Needs to match DEFAULT_GPU_IMAGE
