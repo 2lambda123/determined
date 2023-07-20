@@ -14,11 +14,11 @@ MAX_TRIAL_BUILD_SECS = 90
 
 
 DEFAULT_TF1_CPU_IMAGE = "determinedai/environments:py-3.7-pytorch-1.7-tf-1.15-cpu-14cb565"
-DEFAULT_TF2_CPU_IMAGE = "determinedai/environments-dev:py-3.8-pytorch-2.0-tf-2.11-cpu-df024d7"
+DEFAULT_TF2_CPU_IMAGE = "determinedai/environments-dev:py-3.10-pytorch-2.0-tf-2.11-cpu-222eb0c"
 DEFAULT_TF1_GPU_IMAGE = "determinedai/environments:cuda-10.2-pytorch-1.7-tf-1.15-gpu-6eceaca"
-DEFAULT_TF2_GPU_IMAGE = "determinedai/environments-dev:cuda-11.3-pytorch-2.0-tf-2.11-gpu-df024d7"
-DEFAULT_PT_CPU_IMAGE = "determinedai/environments-dev:py-3.8-pytorch-2.0-cpu-df024d7"
-DEFAULT_PT_GPU_IMAGE = "determinedai/environments-dev:cuda-11.3-pytorch-2.0-gpu-df024d7"
+DEFAULT_TF2_GPU_IMAGE = "determinedai/environments-dev:cuda-11.8-pytorch-2.0-tf-2.11-gpu-222eb0c"
+DEFAULT_PT_CPU_IMAGE = "determinedai/environments-dev:py-3.10-pytorch-2.0-cpu-222eb0c"
+DEFAULT_PT_GPU_IMAGE = "determinedai/environments-dev:cuda-11.8-pytorch-2.0-gpu-222eb0c"
 
 TF1_CPU_IMAGE = os.environ.get("TF1_CPU_IMAGE") or DEFAULT_TF1_CPU_IMAGE
 TF2_CPU_IMAGE = os.environ.get("TF2_CPU_IMAGE") or DEFAULT_TF2_CPU_IMAGE

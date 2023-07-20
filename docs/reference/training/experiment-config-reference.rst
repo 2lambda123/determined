@@ -1214,8 +1214,8 @@ Optional. The Docker image to use when executing the workload. This image must b
 container images for NVIDIA GPU tasks using ``cuda`` key (``gpu`` prior to 0.17.6), CPU tasks using
 ``cpu`` key, and ROCm (AMD GPU) tasks using ``rocm`` key. Default values:
 
--  ``determinedai/environments-dev:cuda-11.3-pytorch-2.0-tf-2.11-gpu-0.24.0`` for NVIDIA GPUs.
--  ``determinedai/environments-dev:py-3.8-pytorch-2.0-tf-2.11-cpu-0.24.0`` for CPUs.
+-  ``determinedai/environments-dev:cuda-11.8-pytorch-2.0-tf-2.11-gpu-0.24.0`` for NVIDIA GPUs.
+-  ``determinedai/environments-dev:py-3.10-pytorch-2.0-tf-2.11-cpu-0.24.0`` for CPUs.
 -  ``determinedai/environments-dev:rocm-5.0-pytorch-1.10-tf-2.7-rocm-0.24.0`` for ROCm.
 
 When the cluster is configured with :ref:`resource_manager.type: slurm

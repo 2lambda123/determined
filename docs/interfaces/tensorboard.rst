@@ -69,7 +69,7 @@ Example experiment configuration file:
 .. code:: yaml
 
    environment:
-     image: determinedai/environments-dev:cuda-11.3-pytorch-2.0-tf-2.11-gpu-0.24.0
+     image: determinedai/environments-dev:cuda-11.8-pytorch-2.0-tf-2.11-gpu-0.24.0
    bind_mounts:
      - host_path: /my/agent/path
        container_path: /my/container/path
