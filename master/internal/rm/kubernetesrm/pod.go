@@ -199,19 +199,19 @@ func (p *pod) Receive(ctx *actor.Context) error {
 		p.receivePodEventUpdate(ctx, msg)
 
 	case PreemptTaskPod:
-		ctx.Log().Info("received preemption command")
+		p.syslog.Info("received preemption command")
 		p.taskActor.System().Tell(p.taskActor, sproto.ReleaseResources{})
 
 	case ChangePriority:
-		ctx.Log().Info("interrupting pod to change priorities")
+		p.syslog.Info("interrupting pod to change priorities")
 		p.taskActor.System().Tell(p.taskActor, sproto.ReleaseResources{})
 
 	case ChangePosition:
-		ctx.Log().Info("interrupting pod to change positions")
+		p.syslog.Info("interrupting pod to change positions")
 		p.taskActor.System().Tell(p.taskActor, sproto.ReleaseResources{})
 
 	case KillTaskPod:
-		ctx.Log().Info("received request to stop pod")
+		p.syslog.Info("received request to stop pod")
 		p.deleteKubernetesResources(ctx)
 
 	case getPodNodeInfo:
@@ -226,11 +226,11 @@ func (p *pod) Receive(ctx *actor.Context) error {
 
 	case actor.ChildStopped:
 		if !p.resourcesDeleted.Load() {
-			ctx.Log().Errorf("pod logger exited unexpectedly")
+			p.syslog.Errorf("pod logger exited unexpectedly")
 		}
 
 	default:
-		ctx.Log().Errorf("unexpected message %T", msg)
+		p.syslog.Errorf("unexpected message %T", msg)
 		return actor.ErrUnexpectedMessage(ctx)
 	}
 
@@ -275,7 +275,7 @@ func (p *pod) createPodSpecAndSubmit(ctx *actor.Context) error {
 func (p *pod) receivePodStatusUpdate(ctx *actor.Context, msg podStatusUpdate) error {
 	p.pod = msg.updatedPod
 
-	containerState, err := getPodState(ctx, p.pod, p.containerNames)
+	containerState, err := p.getPodState()
 	if err != nil {
 		return err
 	}
@@ -291,17 +291,17 @@ func (p *pod) receivePodStatusUpdate(ctx *actor.Context, msg podStatusUpdate) er
 	case cproto.Starting:
 		// Kubernetes does not have an explicit state for pulling container images.
 		// We insert it here because our  current implementation of the trial actor requires it.
-		ctx.Log().Infof(
+		p.syslog.Infof(
 			"transitioning pod state from %s to %s", p.container.State, cproto.Pulling)
 		p.container = p.container.Transition(cproto.Pulling)
 		p.informTaskResourcesState(ctx)
 
-		ctx.Log().Infof("transitioning pod state from %s to %s", p.container.State, containerState)
+		p.syslog.Infof("transitioning pod state from %s to %s", p.container.State, containerState)
 		p.container = p.container.Transition(cproto.Starting)
 		p.informTaskResourcesState(ctx)
 
 	case cproto.Running:
-		ctx.Log().Infof("transitioning pod state from %s to %s", p.container.State, containerState)
+		p.syslog.Infof("transitioning pod state from %s to %s", p.container.State, containerState)
 		p.container = p.container.Transition(cproto.Running)
 		p.informTaskResourcesStarted(ctx, getResourcesStartedForPod(p.pod, p.ports))
 		err := p.startPodLogStreamer(ctx)
@@ -316,7 +316,7 @@ func (p *pod) receivePodStatusUpdate(ctx *actor.Context, msg podStatusUpdate) er
 			// determined containers generates an exit code. To check if this is
 			// the case we check if a deletion timestamp has been set.
 			if p.pod.ObjectMeta.DeletionTimestamp != nil {
-				ctx.Log().Info("unable to get exit code for pod, setting exit code to 1025")
+				p.syslog.Info("unable to get exit code for pod, setting exit code to 1025")
 				exitCode = 1025
 				exitMessage = "unable to get exit code or exit message from pod"
 			} else {
@@ -324,15 +324,15 @@ func (p *pod) receivePodStatusUpdate(ctx *actor.Context, msg podStatusUpdate) er
 			}
 		}
 
-		ctx.Log().Infof("transitioning pod state from %s to %s", p.container.State, containerState)
+		p.syslog.Infof("transitioning pod state from %s to %s", p.container.State, containerState)
 		p.container = p.container.Transition(cproto.Terminated)
 
 		var resourcesStopped sproto.ResourcesStopped
 		switch exitCode {
 		case aproto.SuccessExitCode:
-			ctx.Log().Infof("pod exited successfully")
+			p.syslog.Infof("pod exited successfully")
 		default:
-			ctx.Log().Infof("pod failed with exit code: %d %s", exitCode, exitMessage)
+			p.syslog.Infof("pod failed with exit code: %d %s", exitCode, exitMessage)
 			resourcesStopped.Failure = sproto.NewResourcesFailure(
 				sproto.ResourcesFailed,
 				exitMessage,
@@ -353,7 +353,7 @@ func (p *pod) deleteKubernetesResources(ctx *actor.Context) {
 		return
 	}
 
-	ctx.Log().Infof("requesting to delete kubernetes resources")
+	p.syslog.Infof("requesting to delete kubernetes resources")
 	p.resourceRequestQueue.deleteKubernetesResources(
 		p.handleResourceError(ctx),
 		p.namespace,
@@ -389,7 +389,7 @@ func (p *pod) finalizeTaskState(ctx *actor.Context) {
 	// If an error occurred during the lifecycle of the pods, we need to update the scheduler
 	// and the task handler with new state.
 	if p.container.State != cproto.Terminated {
-		ctx.Log().Warnf("updating container state after pod actor exited unexpectedly")
+		p.syslog.Warnf("updating container state after pod actor exited unexpectedly")
 		p.container = p.container.Transition(cproto.Terminated)
 
 		p.informTaskResourcesStopped(ctx, sproto.ResourcesError(
@@ -498,19 +498,15 @@ func (p *pod) receivePodEventUpdate(ctx *actor.Context, msg podEventUpdate) {
 	p.insertLog(ctx, msg.event.CreationTimestamp.Time, message)
 }
 
-func getPodState(
-	ctx *actor.Context,
-	pod *k8sV1.Pod,
-	containerNames set.Set[string],
-) (cproto.State, error) {
-	switch pod.Status.Phase {
+func (p *pod) getPodState() (cproto.State, error) {
+	switch p.pod.Status.Phase {
 	case k8sV1.PodPending:
 		// When pods are deleted, Kubernetes sometimes transitions pod statuses to pending
 		// prior to deleting them. In these cases we have observed that we do not always
 		// receive a PodFailed or a PodSucceeded message. We check if pods have a set pod
 		// deletion timestamp to see if this is the case.
 		if pod.ObjectMeta.DeletionTimestamp != nil {
-			ctx.Log().Warn("marking pod as terminated due to deletion timestamp")
+			p.syslog.Warn("marking pod as terminated due to deletion timestamp")
 			return cproto.Terminated, nil
 		}
 
@@ -526,7 +522,7 @@ func getPodState(
 		// We check the status of the Determined containers directly to determine if they
 		// are still running.
 		containerStatuses, err := getDeterminedContainersStatus(
-			pod.Status.ContainerStatuses, containerNames)
+			p.pod.Status.ContainerStatuses, p.containerNames)
 		if err != nil {
 			return "", err
 		}
@@ -551,7 +547,7 @@ func getPodState(
 
 	default:
 		return "", errors.Errorf(
-			"unexpected pod status %s for pod %s", pod.Status.Phase, pod.Name)
+			"unexpected pod status %s for pod %s", pod.Status.Phase, p.pod.Name)
 	}
 }
 
