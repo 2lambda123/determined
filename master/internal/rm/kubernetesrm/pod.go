@@ -505,12 +505,12 @@ func (p *pod) getPodState() (cproto.State, error) {
 		// prior to deleting them. In these cases we have observed that we do not always
 		// receive a PodFailed or a PodSucceeded message. We check if pods have a set pod
 		// deletion timestamp to see if this is the case.
-		if pod.ObjectMeta.DeletionTimestamp != nil {
+		if p.pod.ObjectMeta.DeletionTimestamp != nil {
 			p.syslog.Warn("marking pod as terminated due to deletion timestamp")
 			return cproto.Terminated, nil
 		}
 
-		for _, condition := range pod.Status.Conditions {
+		for _, condition := range p.pod.Status.Conditions {
 			if condition.Type == k8sV1.PodScheduled && condition.Status == k8sV1.ConditionTrue {
 				return cproto.Starting, nil
 			}
@@ -547,7 +547,7 @@ func (p *pod) getPodState() (cproto.State, error) {
 
 	default:
 		return "", errors.Errorf(
-			"unexpected pod status %s for pod %s", pod.Status.Phase, p.pod.Name)
+			"unexpected pod status %s for pod %s", p.pod.Status.Phase, p.pod.Name)
 	}
 }
 
