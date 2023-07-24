@@ -217,12 +217,13 @@ func cleanup(t *testing.T) {
 
 func checkReceiveTermination(
 	t *testing.T,
-	update podStatusUpdate,
+	update *k8sV1.Pod,
 	system *actor.System,
 	ref *actor.Ref,
 	newPod *pod,
 	podMap map[string]*mockReceiver,
 ) {
+	// TODO CAROLINA
 	system.Ask(ref, update)
 	time.Sleep(time.Second)
 
@@ -294,7 +295,7 @@ func TestReceivePodStatusUpdateTerminated(t *testing.T) {
 		Status:     k8sV1.PodStatus{Phase: k8sV1.PodPending},
 	}
 
-	statusUpdate := podStatusUpdate{updatedPod: &pod}
+	statusUpdate := &pod
 
 	checkReceiveTermination(t, statusUpdate, system, ref, newPod, podMap)
 
@@ -308,7 +309,7 @@ func TestReceivePodStatusUpdateTerminated(t *testing.T) {
 		ObjectMeta: objectMeta,
 		Status:     k8sV1.PodStatus{Phase: k8sV1.PodFailed},
 	}
-	statusUpdate = podStatusUpdate{updatedPod: &pod}
+	statusUpdate = &pod
 
 	checkReceiveTermination(t, statusUpdate, system, ref, newPod, podMap)
 
@@ -321,7 +322,7 @@ func TestReceivePodStatusUpdateTerminated(t *testing.T) {
 		ObjectMeta: objectMeta,
 		Status:     k8sV1.PodStatus{Phase: k8sV1.PodSucceeded},
 	}
-	statusUpdate = podStatusUpdate{updatedPod: &pod}
+	statusUpdate = &pod
 
 	checkReceiveTermination(t, statusUpdate, system, ref, newPod, podMap)
 
@@ -368,7 +369,7 @@ func TestMultipleContainerTerminate(t *testing.T) {
 		},
 	}
 
-	statusUpdate := podStatusUpdate{updatedPod: &pod}
+	statusUpdate := &pod
 	checkReceiveTermination(t, statusUpdate, system, ref, newPod, podMap)
 
 	// Multiple pods, 1 termination, no deletion timestamp.
@@ -389,7 +390,7 @@ func TestMultipleContainerTerminate(t *testing.T) {
 		},
 	}
 
-	statusUpdate = podStatusUpdate{updatedPod: &pod}
+	statusUpdate = &pod
 	checkReceiveTermination(t, statusUpdate, system, ref, newPod, podMap)
 }
 
@@ -411,7 +412,8 @@ func TestReceivePodStatusUpdateAssigned(t *testing.T) {
 		Status:     k8sV1.PodStatus{Phase: k8sV1.PodPending},
 	}
 
-	statusUpdate := podStatusUpdate{updatedPod: &pod}
+	// TODO CAROLINA -- fix all the statusUpdate & system.Asks
+	statusUpdate := &pod
 
 	assert.Equal(t, newPod.container.State, cproto.Assigned)
 	system.Ask(ref, statusUpdate)
@@ -454,7 +456,7 @@ func TestReceivePodStatusUpdateStarting(t *testing.T) {
 		ObjectMeta: objectMeta,
 		Status:     status,
 	}
-	statusUpdate := podStatusUpdate{updatedPod: &pod}
+	statusUpdate := &pod
 
 	system.Ask(ref, statusUpdate)
 	time.Sleep(time.Second)
@@ -492,7 +494,7 @@ func TestReceivePodStatusUpdateStarting(t *testing.T) {
 		ObjectMeta: objectMeta,
 		Status:     status,
 	}
-	statusUpdate = podStatusUpdate{updatedPod: &pod}
+	statusUpdate = &pod
 
 	system.Ask(ref, statusUpdate)
 	time.Sleep(time.Second)
@@ -516,7 +518,7 @@ func TestReceivePodStatusUpdateStarting(t *testing.T) {
 		ObjectMeta: objectMeta,
 		Status:     status,
 	}
-	statusUpdate = podStatusUpdate{updatedPod: &pod}
+	statusUpdate = &pod
 	system.Ask(ref, statusUpdate)
 	time.Sleep(time.Second)
 	assert.Equal(t, podMap["task"].GetLength(), 2)
@@ -567,7 +569,7 @@ func TestMultipleContainersRunning(t *testing.T) {
 		"determined-fluent-container",
 		"test-pod",
 	})
-	statusUpdate := podStatusUpdate{updatedPod: &pod}
+	statusUpdate := &pod
 
 	system.Ask(ref, statusUpdate)
 	time.Sleep(time.Second)
@@ -595,7 +597,7 @@ func TestMultipleContainersRunning(t *testing.T) {
 		ObjectMeta: objectMeta,
 		Status:     status,
 	}
-	statusUpdate = podStatusUpdate{updatedPod: &pod}
+	statusUpdate = &pod
 	system.Ask(ref, statusUpdate)
 	time.Sleep(time.Second)
 
@@ -630,7 +632,7 @@ func TestReceivePodEventUpdate(t *testing.T) {
 	podMap["task"].Purge()
 	assert.Equal(t, podMap["task"].GetLength(), 0)
 
-	system.Ask(ref, podEventUpdate{event: &newEvent})
+	system.Ask(ref, &newEvent)
 	time.Sleep(time.Second)
 
 	assert.Equal(t, podMap["task"].GetLength(), 1)
@@ -650,13 +652,14 @@ func TestReceivePodEventUpdate(t *testing.T) {
 	// When container is in Running state, pod actor should not forward message.
 	podMap["task"].Purge()
 	newPod.container.State = cproto.Running
-	system.Ask(ref, podEventUpdate{event: &newEvent})
+	system.Ask(ref, &newEvent)
 	time.Sleep(time.Second)
 	assert.Equal(t, podMap["task"].GetLength(), 0)
 
 	// When container is in Terminated state, pod actor should not forward message.
 	newPod.container.State = cproto.Terminated
-	system.Ask(ref, podEventUpdate{event: &newEvent})
+	// TODO CAROLINA
+	system.Ask(ref, &newEvent)
 	time.Sleep(time.Second)
 	assert.Equal(t, podMap["task"].GetLength(), 0)
 }
@@ -713,7 +716,7 @@ func TestReceiveContainerLog(t *testing.T) {
 	newPod.containerNames = set.FromSlice([]string{
 		"sample-container",
 	})
-	statusUpdate := podStatusUpdate{updatedPod: &pod}
+	statusUpdate := &pod
 
 	system.Ask(ref, statusUpdate)
 	time.Sleep(time.Second)

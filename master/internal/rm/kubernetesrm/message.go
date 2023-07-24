@@ -25,11 +25,6 @@ type (
 		PodID cproto.ID
 	}
 
-	// PreemptTaskPod notifies the pods actor to preempt a pod.
-	PreemptTaskPod struct {
-		PodName string
-	}
-
 	// ChangePriority notifies the pods actor of a priority change and to resubmit the specified pod.
 	ChangePriority struct {
 		PodID cproto.ID

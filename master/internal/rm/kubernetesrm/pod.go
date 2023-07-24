@@ -42,15 +42,8 @@ type podSubmissionInfo struct {
 	taskSpec tasks.TaskSpec
 }
 
-// TODO(mar).
-// podStatusUpdate: messages that are sent by the pod informer.
-type podStatusUpdate struct {
-	updatedPod *k8sV1.Pod
-}
-
-// podEventUpdate are messages that are sent by the event listener.
-type podEventUpdate struct {
-	event *k8sV1.Event
+type podInfo struct {
+	pods map[*actor.Ref]*pod
 }
 
 // pod manages the lifecycle of a Kubernetes pod that executes a
@@ -92,10 +85,8 @@ type pod struct {
 	restore bool
 
 	syslog              *logrus.Entry
-	handleResourceError func(ctx *actor.Context) errorCallbackFunc
+	handleResourceError func(s *actor.System) errorCallbackFunc
 }
-
-type getPodNodeInfo struct{}
 
 type podNodeInfo struct {
 	nodeName  string
@@ -166,82 +157,46 @@ func newPod(
 			}).Fields(),
 		),
 	}
-	p.handleResourceError = func(ctx *actor.Context) errorCallbackFunc {
+	p.handleResourceError = func(s *actor.System) errorCallbackFunc {
 		return func(err error) {
-			p.resourceErrorCallback(ctx, err)
+			p.resourceErrorCallback(s, err)
 		}
 	}
+
 	return p
 }
 
-func (p *pod) Receive(ctx *actor.Context) error {
-	switch msg := ctx.Message().(type) {
-	case actor.PreStart:
-		if p.restore {
-			if p.container.State == cproto.Running {
-				err := p.startPodLogStreamer(ctx)
-				if err != nil {
-					return err
-				}
-			}
-		} else {
-			if err := p.createPodSpecAndSubmit(ctx); err != nil {
-				return errors.Wrap(err, "error creating pod spec")
+// TODO CAROLINA -- replace where actor.PreStart
+func (p *pod) Initialize(s *actor.System) error {
+	// TODO CAROLINA -- not sure this is the right place for this?
+	if p.restore {
+		if p.container.State == cproto.Running {
+			err := p.startPodLogStreamer(s)
+			if err != nil {
+				return err
 			}
 		}
-
-	case podStatusUpdate:
-		if err := p.receivePodStatusUpdate(ctx, msg); err != nil {
-			return err
+	} else {
+		if err := p.createPodSpecAndSubmit(s); err != nil {
+			return errors.Wrap(err, "error creating pod spec")
 		}
-
-	case podEventUpdate:
-		p.receivePodEventUpdate(ctx, msg)
-
-	case PreemptTaskPod:
-		p.syslog.Info("received preemption command")
-		p.taskActor.System().Tell(p.taskActor, sproto.ReleaseResources{})
-
-	case ChangePriority:
-		p.syslog.Info("interrupting pod to change priorities")
-		p.taskActor.System().Tell(p.taskActor, sproto.ReleaseResources{})
-
-	case ChangePosition:
-		p.syslog.Info("interrupting pod to change positions")
-		p.taskActor.System().Tell(p.taskActor, sproto.ReleaseResources{})
-
-	case KillTaskPod:
-		p.syslog.Info("received request to stop pod")
-		p.deleteKubernetesResources(ctx)
-
-	case getPodNodeInfo:
-		p.receiveGetPodNodeInfo(ctx)
-
-	case actor.PostStop:
-		defer p.finalizeTaskState(ctx)
-
-		if !p.leaveKubernetesResources {
-			p.deleteKubernetesResources(ctx)
-		}
-
-	case actor.ChildStopped:
-		if !p.resourcesDeleted.Load() {
-			p.syslog.Errorf("pod logger exited unexpectedly")
-		}
-
-	default:
-		p.syslog.Errorf("unexpected message %T", msg)
-		return actor.ErrUnexpectedMessage(ctx)
 	}
-
 	return nil
 }
 
-func (p *pod) resourceErrorCallback(ctx *actor.Context, err error) {
-	defer ctx.Self().Stop()
+// TODO CAROLINA -- replace where actor.PostSop
+func (p *pod) close(s *actor.System) {
+	defer p.finalizeTaskState(s)
+
+	if !p.leaveKubernetesResources {
+		p.deleteKubernetesResources(s)
+	}
+}
+func (p *pod) resourceErrorCallback(s *actor.System, err error) {
+	defer s.Stop()
 	switch err := err.(type) {
 	case resourceCreationFailed:
-		p.receiveResourceCreationFailed(ctx, err)
+		p.receiveResourceCreationFailed(s, err)
 	case resourceCreationCancelled:
 		p.receiveResourceCreationCancelled()
 	case resourceDeletionFailed:
@@ -251,9 +206,9 @@ func (p *pod) resourceErrorCallback(ctx *actor.Context, err error) {
 	}
 }
 
-func (p *pod) startPodLogStreamer(ctx *actor.Context) error {
+func (p *pod) startPodLogStreamer(s *actor.System) error {
 	return startPodLogStreamer(p.podInterface, p.podName, func(log []byte) {
-		p.receiveContainerLog(ctx, sproto.ContainerLog{
+		p.receiveContainerLog(s, sproto.ContainerLog{
 			Timestamp: time.Now().UTC(),
 			RunMessage: &aproto.RunMessage{
 				Value:   string(log),
@@ -263,17 +218,17 @@ func (p *pod) startPodLogStreamer(ctx *actor.Context) error {
 	})
 }
 
-func (p *pod) createPodSpecAndSubmit(ctx *actor.Context) error {
+func (p *pod) createPodSpecAndSubmit(s *actor.System) error {
 	if err := p.createPodSpec(p.scheduler); err != nil {
 		return err
 	}
 
-	p.resourceRequestQueue.createKubernetesResources(p.handleResourceError(ctx), p.pod, p.configMap)
+	p.resourceRequestQueue.createKubernetesResources(p.handleResourceError(s), p.pod, p.configMap)
 	return nil
 }
 
-func (p *pod) receivePodStatusUpdate(ctx *actor.Context, msg podStatusUpdate) error {
-	p.pod = msg.updatedPod
+func (p *pod) receivePodStatusUpdate(s *actor.System, pod *k8sV1.Pod) error {
+	p.pod = pod
 
 	containerState, err := p.getPodState()
 	if err != nil {
@@ -294,17 +249,17 @@ func (p *pod) receivePodStatusUpdate(ctx *actor.Context, msg podStatusUpdate) er
 		p.syslog.Infof(
 			"transitioning pod state from %s to %s", p.container.State, cproto.Pulling)
 		p.container = p.container.Transition(cproto.Pulling)
-		p.informTaskResourcesState(ctx)
+		p.informTaskResourcesState(s)
 
 		p.syslog.Infof("transitioning pod state from %s to %s", p.container.State, containerState)
 		p.container = p.container.Transition(cproto.Starting)
-		p.informTaskResourcesState(ctx)
+		p.informTaskResourcesState(s)
 
 	case cproto.Running:
 		p.syslog.Infof("transitioning pod state from %s to %s", p.container.State, containerState)
 		p.container = p.container.Transition(cproto.Running)
-		p.informTaskResourcesStarted(ctx, getResourcesStartedForPod(p.pod, p.ports))
-		err := p.startPodLogStreamer(ctx)
+		p.informTaskResourcesStarted(s, getResourcesStartedForPod(p.pod, p.ports))
+		err := p.startPodLogStreamer(s)
 		if err != nil {
 			return err
 		}
@@ -338,8 +293,8 @@ func (p *pod) receivePodStatusUpdate(ctx *actor.Context, msg podStatusUpdate) er
 				exitMessage,
 				ptrs.Ptr(sproto.ExitCode(exitCode)))
 		}
-		p.informTaskResourcesStopped(ctx, resourcesStopped)
-		ctx.Self().Stop()
+		p.informTaskResourcesStopped(s, resourcesStopped)
+		s.Stop()
 
 	default:
 		panic(fmt.Sprintf("unexpected container state %s", containerState))
@@ -348,23 +303,23 @@ func (p *pod) receivePodStatusUpdate(ctx *actor.Context, msg podStatusUpdate) er
 	return nil
 }
 
-func (p *pod) deleteKubernetesResources(ctx *actor.Context) {
+func (p *pod) deleteKubernetesResources(s *actor.System) {
 	if !p.resourcesDeleted.CompareAndSwap(false, true) {
 		return
 	}
 
 	p.syslog.Infof("requesting to delete kubernetes resources")
 	p.resourceRequestQueue.deleteKubernetesResources(
-		p.handleResourceError(ctx),
+		p.handleResourceError(s),
 		p.namespace,
 		p.podName,
 		p.configMapName,
 	)
 }
 
-func (p *pod) receiveResourceCreationFailed(ctx *actor.Context, err resourceCreationFailed) {
+func (p *pod) receiveResourceCreationFailed(s *actor.System, err resourceCreationFailed) {
 	p.syslog.WithError(err).Error("pod actor notified that resource creation failed")
-	p.insertLog(ctx, time.Now().UTC(), err.Error())
+	p.insertLog(s, time.Now().UTC(), err.Error())
 }
 
 func (p *pod) receiveResourceCreationCancelled() {
@@ -376,29 +331,29 @@ func (p *pod) receiveResourceDeletionFailed(err resourceDeletionFailed) {
 	p.syslog.WithError(err).Error("pod actor notified that resource deletion failed")
 }
 
-func (p *pod) receiveGetPodNodeInfo(ctx *actor.Context) {
-	ctx.Respond(podNodeInfo{
+func (p *pod) receiveGetPodNodeInfo() podNodeInfo {
+	return podNodeInfo{
 		nodeName:  p.pod.Spec.NodeName,
 		numSlots:  p.slots,
 		slotType:  p.slotType,
 		container: &p.container,
-	})
+	}
 }
 
-func (p *pod) finalizeTaskState(ctx *actor.Context) {
+func (p *pod) finalizeTaskState(s *actor.System) {
 	// If an error occurred during the lifecycle of the pods, we need to update the scheduler
 	// and the task handler with new state.
 	if p.container.State != cproto.Terminated {
 		p.syslog.Warnf("updating container state after pod actor exited unexpectedly")
 		p.container = p.container.Transition(cproto.Terminated)
 
-		p.informTaskResourcesStopped(ctx, sproto.ResourcesError(
+		p.informTaskResourcesStopped(s, sproto.ResourcesError(
 			sproto.TaskError, errors.New("pod actor exited while pod was running")))
 	}
 }
 
-func (p *pod) informTaskResourcesState(ctx *actor.Context) {
-	ctx.Tell(p.taskActor, sproto.ResourcesStateChanged{
+func (p *pod) informTaskResourcesState(s *actor.System) {
+	s.Tell(p.taskActor, sproto.ResourcesStateChanged{
 		ResourcesID:    sproto.FromContainerID(p.container.ID),
 		ResourcesState: sproto.FromContainerState(p.container.State),
 		Container:      p.container.DeepCopy(),
@@ -406,10 +361,10 @@ func (p *pod) informTaskResourcesState(ctx *actor.Context) {
 }
 
 func (p *pod) informTaskResourcesStarted(
-	ctx *actor.Context,
+	s *actor.System,
 	rs sproto.ResourcesStarted,
 ) {
-	ctx.Tell(p.taskActor, sproto.ResourcesStateChanged{
+	s.Tell(p.taskActor, sproto.ResourcesStateChanged{
 		ResourcesID:      sproto.FromContainerID(p.container.ID),
 		ResourcesState:   sproto.FromContainerState(p.container.State),
 		ResourcesStarted: &rs,
@@ -418,10 +373,10 @@ func (p *pod) informTaskResourcesStarted(
 }
 
 func (p *pod) informTaskResourcesStopped(
-	ctx *actor.Context,
+	s *actor.System,
 	rs sproto.ResourcesStopped,
 ) {
-	ctx.Tell(p.taskActor, sproto.ResourcesStateChanged{
+	s.Tell(p.taskActor, sproto.ResourcesStateChanged{
 		ResourcesID:      sproto.FromContainerID(p.container.ID),
 		ResourcesState:   sproto.FromContainerState(p.container.State),
 		ResourcesStopped: &rs,
@@ -429,13 +384,13 @@ func (p *pod) informTaskResourcesStopped(
 	})
 }
 
-func (p *pod) receiveContainerLog(ctx *actor.Context, msg sproto.ContainerLog) {
+func (p *pod) receiveContainerLog(s *actor.System, msg sproto.ContainerLog) {
 	msg.ContainerID = p.container.ID
-	ctx.Tell(p.taskActor, msg)
+	s.Tell(p.taskActor, msg)
 }
 
-func (p *pod) insertLog(ctx *actor.Context, timestamp time.Time, msg string) {
-	p.receiveContainerLog(ctx, sproto.ContainerLog{
+func (p *pod) insertLog(s *actor.System, timestamp time.Time, msg string) {
+	p.receiveContainerLog(s, sproto.ContainerLog{
 		Timestamp:  timestamp,
 		AuxMessage: &msg,
 	})
@@ -484,18 +439,18 @@ func (p *pod) preparePodUpdateMessage(msgText string) string {
 	return msgText
 }
 
-func (p *pod) receivePodEventUpdate(ctx *actor.Context, msg podEventUpdate) {
+func (p *pod) receivePodEventUpdate(s *actor.System, event *k8sV1.Event) {
 	// We only forward messages while pods are starting up.
 	switch p.container.State {
 	case cproto.Running, cproto.Terminated:
 		return
 	}
 
-	msgText := p.preparePodUpdateMessage(msg.event.Message)
-	msg.event.Message = msgText
+	msgText := p.preparePodUpdateMessage(event.Message)
+	event.Message = msgText
 
-	message := fmt.Sprintf("Pod %s: %s", msg.event.InvolvedObject.Name, msgText)
-	p.insertLog(ctx, msg.event.CreationTimestamp.Time, message)
+	message := fmt.Sprintf("Pod %s: %s", event.InvolvedObject.Name, msgText)
+	p.insertLog(s, event.CreationTimestamp.Time, message)
 }
 
 func (p *pod) getPodState() (cproto.State, error) {
