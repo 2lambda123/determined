@@ -16,7 +16,7 @@ cd ddetr && git reset --hard 11169a60c33333af00a4849f1808023eba96a931
 sed -i 's/float(torchvision\.__version__\[:3\]) < 0.5/int(torchvision\.__version__.split("\.")\[1\]) < 7/g' util/misc.py
 sed -i 's/float(torchvision\.__version__\[:3\]) < 0.7/int(torchvision\.__version__.split("\.")\[1\]) < 7/g' util/misc.py
 
-pip install tqdm attrdict pycocotools cython scipy
+pip install tqdm attrdict3 pycocotools cython scipy
 
 # Build custom cuda ops
 cd models/ops
