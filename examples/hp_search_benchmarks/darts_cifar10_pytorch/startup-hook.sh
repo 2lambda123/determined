@@ -1,1 +1,1 @@
-pip install attrdict
+pip install attrdict3

@@ -12,5 +12,5 @@ cd detr && git reset --hard 4e1a9281bc5621dcd65f3438631de25e255c4269
 sed -i 's/float(torchvision\.__version__\[:3\]) < 0.7/int(torchvision\.__version__.split("\.")\[1\]) < 7/g' util/misc.py
 cd ..
 
-pip install attrdict
+pip install attrdict3
 pip install pycocotools
