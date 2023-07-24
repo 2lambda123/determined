@@ -4,6 +4,6 @@ pip install timm==0.9
 pip install pycocotools==2.0.6
 git clone https://github.com/rwightman/efficientdet-pytorch.git
 cd efficientdet-pytorch
-git checkout 611532db49fdd691f48f913bc433391a12014bd8
+git checkout d43c9e34cd62d22b4205831bb735f6dd83b8e881
 python setup.py install
 cd ..
