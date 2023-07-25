@@ -472,9 +472,14 @@ export const metricTypeParamMap: Record<string, MetricTypeParam> = {
   [MetricType.Validation]: 'METRIC_TYPE_VALIDATION',
 };
 
-export interface Metric {
+export interface OldMetric {
   name: string;
   type: MetricType;
+}
+
+export interface Metric {
+  name: string;
+  type: string;
 }
 
 export interface BaseWorkload extends EndTimes {

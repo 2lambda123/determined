@@ -7,7 +7,7 @@ import { UPlotPoint } from 'components/UPlot/types';
 import { closestPointPlugin } from 'components/UPlot/UPlotChart/closestPointPlugin';
 import { drawPointsPlugin } from 'components/UPlot/UPlotChart/drawPointsPlugin';
 import { tooltipsPlugin } from 'components/UPlot/UPlotChart/tooltipsPlugin';
-import useMetricNames from 'hooks/useMetricNames';
+import useMetricNames, { asLoadableOldMetrics } from 'hooks/useMetricNames';
 import { useCheckpointFlow } from 'hooks/useModal/Checkpoint/useCheckpointFlow';
 import usePermissions from 'hooks/usePermissions';
 import { useSettings } from 'hooks/useSettings';
@@ -17,6 +17,7 @@ import {
   ExperimentBase,
   Metric,
   MetricType,
+  OldMetric,
   TrialDetails,
 } from 'types';
 import { ErrorType } from 'utils/error';
@@ -194,7 +195,7 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
   );
 
   const loadableMetricNames = useMetricNames([experiment.id], handleMetricNamesError);
-  const metricNames = Loadable.getOrElse([], loadableMetricNames);
+  const metricNames = Loadable.getOrElse([], asLoadableOldMetrics(loadableMetricNames));
 
   const { defaultMetrics, workloadMetrics } = useMemo(() => {
     const validationMetric = experiment?.config?.searcher.metric;
@@ -205,7 +206,7 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
     const fallbackMetric = metricNames[0];
     const defaultMetric = defaultValidationMetric || fallbackMetric;
     const defaultMetrics = defaultMetric ? [defaultMetric] : [];
-    const settingMetrics: Metric[] = (settings.metric || []).map((metric) => {
+    const settingMetrics: OldMetric[] = (settings.metric || []).map((metric) => {
       const splitMetric = metric.split('|');
       return { name: splitMetric[1], type: splitMetric[0] as MetricType };
     });

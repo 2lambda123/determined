@@ -33,7 +33,7 @@ export interface Serie {
   color?: string;
   data: Partial<Record<XAxisDomain, [x: number, y: number][]>>;
   key?: number;
-  metricType?: MetricType;
+  metricType?: string;
   name?: string;
 }
 
