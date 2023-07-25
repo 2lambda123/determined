@@ -8349,6 +8349,7 @@ class v1Permission(Printable):
 class v1PermissionType(DetEnum):
     UNSPECIFIED = "PERMISSION_TYPE_UNSPECIFIED"
     ADMINISTRATE_USER = "PERMISSION_TYPE_ADMINISTRATE_USER"
+    ADMINISTRATE_OAUTH = "PERMISSION_TYPE_ADMINISTRATE_OAUTH"
     CREATE_EXPERIMENT = "PERMISSION_TYPE_CREATE_EXPERIMENT"
     VIEW_EXPERIMENT_ARTIFACTS = "PERMISSION_TYPE_VIEW_EXPERIMENT_ARTIFACTS"
     VIEW_EXPERIMENT_METADATA = "PERMISSION_TYPE_VIEW_EXPERIMENT_METADATA"
@@ -8956,24 +8957,20 @@ class v1PostUserSettingRequest(Printable):
     def __init__(
         self,
         *,
-        setting: "v1UserWebSetting",
-        storagePath: str,
+        settings: "typing.Sequence[v1UserWebSetting]",
     ):
-        self.setting = setting
-        self.storagePath = storagePath
+        self.settings = settings
 
     @classmethod
     def from_json(cls, obj: Json) -> "v1PostUserSettingRequest":
         kwargs: "typing.Dict[str, typing.Any]" = {
-            "setting": v1UserWebSetting.from_json(obj["setting"]),
-            "storagePath": obj["storagePath"],
+            "settings": [v1UserWebSetting.from_json(x) for x in obj["settings"]],
         }
         return cls(**kwargs)
 
     def to_json(self, omit_unset: bool = False) -> typing.Dict[str, typing.Any]:
         out: "typing.Dict[str, typing.Any]" = {
-            "setting": self.setting.to_json(omit_unset),
-            "storagePath": self.storagePath,
+            "settings": [x.to_json(omit_unset) for x in self.settings],
         }
         return out
 
@@ -9612,24 +9609,24 @@ class v1ReportTrialMetricsRequest(Printable):
     def __init__(
         self,
         *,
+        group: str,
         metrics: "v1TrialMetrics",
-        type: str,
     ):
+        self.group = group
         self.metrics = metrics
-        self.type = type
 
     @classmethod
     def from_json(cls, obj: Json) -> "v1ReportTrialMetricsRequest":
         kwargs: "typing.Dict[str, typing.Any]" = {
+            "group": obj["group"],
             "metrics": v1TrialMetrics.from_json(obj["metrics"]),
-            "type": obj["type"],
         }
         return cls(**kwargs)
 
     def to_json(self, omit_unset: bool = False) -> typing.Dict[str, typing.Any]:
         out: "typing.Dict[str, typing.Any]" = {
+            "group": self.group,
             "metrics": self.metrics.to_json(omit_unset),
-            "type": self.type,
         }
         return out
 
@@ -14607,12 +14604,12 @@ def get_GetMe(
 def get_GetMetrics(
     session: "api.Session",
     *,
+    group: str,
     trialIds: "typing.Sequence[int]",
-    type: str,
 ) -> "typing.Iterable[v1GetMetricsResponse]":
     _params = {
+        "group": group,
         "trialIds": trialIds,
-        "type": type,
     }
     _resp = session._do_request(
         method="GET",
