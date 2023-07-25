@@ -7,16 +7,18 @@ from determined.experimental import core_v2 as det
 
 def main():
     det.init(
-        defaults=det.DetConfig(
+        defaults=det.DefaultConfig(
             name="unmanaged-2-checkpoints",
             # We allow configuring the local checkpoint storage directory.
             # checkpoint_storage="/tmp/determined-cp",
         ),
-        experiment_id="test-unmanaged-2-checkpoints",
-        trial_id="test-unmanaged-2-checkpoints",
-        # e.g., requeued jobs on slurm:
-        # experiment_id=f"some-prefix-{os.environ[SLURM_JOB_ID}",
-        # trial_id=f"some-prefix-{os.environ[SLURM_JOB_ID}",
+        unmanaged=det.UnmanagedConfig(
+            experiment_id="test-unmanaged-2-checkpoints",
+            trial_id="test-unmanaged-2-checkpoints",
+            # e.g., requeued jobs on slurm:
+            # experiment_id=f"some-prefix-{os.environ[SLURM_JOB_ID}",
+            # trial_id=f"some-prefix-{os.environ[SLURM_JOB_ID}",
+        ),
     )
 
     latest_checkpoint = det.info.latest_checkpoint

@@ -9,7 +9,7 @@ from determined.experimental import core_v2 as det
 
 def main():
     det.init(
-        defaults=det.DetConfig(
+        defaults=det.DefaultConfig(
             name="unmanaged-1-error",
         ),
     )

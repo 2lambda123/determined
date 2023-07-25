@@ -9,13 +9,16 @@ def main():
     det.init(
         # For managed experiments, will be overridden by the yaml config.
         # Future: merge this and yaml configs at runtime.
-        defaults=det.DetConfig(
+        defaults=det.DefaultConfig(
             name="unmanaged-1-singleton",
             # labels=["some", "set", "of", "labels"],
             # description="some description",
         ),
-        # workspace="...",
-        # project="...",
+        # `UnmanagedConfig` values will not get merged, and will only be used in the unmanaged mode.
+        # unmanaged=det.UnmanagedConfig(
+        #   workspace="...",
+        #   project="...",
+        # )
     )
 
     for i in range(100):

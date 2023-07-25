@@ -9,7 +9,8 @@ import determined
 from determined import core, get_cluster_info
 from determined.common import yaml
 from determined.core._context import Context
-from determined.experimental import Determined, core_context_v2, unmanaged
+from determined.experimental import Determined, core_context_v2
+from determined.experimental import unmanaged as unmanaged_utils
 
 logger = logging.getLogger("determined.experimental.core_v2")
 
@@ -25,7 +26,12 @@ info = None  # type: Optional[determined.ClusterInfo]
 
 
 @dataclasses.dataclass
-class DetConfig:
+class DefaultConfig:
+    """
+    In the future, `DefaultConfig` options will be merged with the experiment config values when
+    running in the managed mode.
+    """
+
     name: Optional[str] = None
     hparams: Optional[Dict[str, Any]] = None
     data: Optional[Dict] = None
@@ -75,6 +81,21 @@ class DetConfig:
     # smaller_is_better: bool = True  # mode?
 
 
+@dataclasses.dataclass
+class UnmanagedConfig:
+    """
+    `UnmanagedConfig` values are only used in the unmanaged mode.
+    """
+
+    # For the managed mode, workspace is critical for RBAC so it cannot be easily
+    # merged and patched during the experiment runtime.
+    workspace: Optional[str] = None
+    project: Optional[str] = None
+    # External experiment & trial ids.
+    experiment_id: Optional[Union[str, int]] = None
+    trial_id: Optional[Union[str, int]] = None
+
+
 def _set_globals() -> None:
     global train
     global checkpoint
@@ -94,15 +115,9 @@ def _set_globals() -> None:
 
 def init(
     *,
-    defaults: Optional[DetConfig] = None,
+    defaults: Optional[DefaultConfig] = None,
+    unmanaged: Optional[UnmanagedConfig] = None,
     client: Optional[Determined] = None,
-    # For the managed mode, workspace is critical for RBAC so it cannot be easily
-    # merged and patched during the experiment runtime.
-    workspace: Optional[str] = None,
-    project: Optional[str] = None,
-    # External experiment & trial ids.
-    experiment_id: Optional[Union[str, int]] = None,
-    trial_id: Optional[Union[str, int]] = None,
     # Classic core context arguments.
     distributed: Optional[core.DistributedContext] = None,
     checkpoint_storage: Optional[Union[str, Dict[str, Any]]] = None,
@@ -141,7 +156,8 @@ def init(
         )
 
     # Construct the config.
-    defaulted_config = defaults or DetConfig()
+    defaulted_config = defaults or DefaultConfig()
+    unmanaged_config = unmanaged or UnmanagedConfig()
     checkpoint_storage = checkpoint_storage or defaulted_config.checkpoint_storage
 
     config = {
@@ -155,24 +171,18 @@ def init(
             "metric": "unmanaged",
             "max_length": 100000000,
         },
-        "workspace": workspace,
-        "project": project,
+        "workspace": unmanaged_config.workspace,
+        "project": unmanaged_config.project,
     }
-
-    if workspace is not None:
-        config["workspace"] = workspace
-
-    if project is not None:
-        config["project"] = project
 
     config_text = yaml.dump(config)
     assert config_text is not None
 
-    unmanaged_info = unmanaged.get_or_create_experiment_and_trial(
+    unmanaged_info = unmanaged_utils.get_or_create_experiment_and_trial(
         client,
         config_text=config_text,
-        experiment_id=experiment_id,
-        trial_id=trial_id,
+        experiment_id=unmanaged_config.experiment_id,
+        trial_id=unmanaged_config.trial_id,
         distributed=distributed,
         hparams=defaulted_config.hparams,
     )
@@ -206,4 +216,4 @@ def url_reverse_webui_exp_view() -> str:
     exp_id = info._trial_info.experiment_id
 
     assert _client is not None
-    return unmanaged.url_reverse_webui_exp_view(_client, exp_id)
+    return unmanaged_utils.url_reverse_webui_exp_view(_client, exp_id)

@@ -29,7 +29,7 @@ class DetCallback(TrainerCallback):
         det = self._det
 
         det.init(
-            defaults=det.DetConfig(
+            defaults=det.DefaultConfig(
                 name="hf-trainer",
             )
         )

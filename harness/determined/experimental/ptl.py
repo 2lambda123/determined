@@ -12,7 +12,7 @@ class DetLogger(Logger):
     def __init__(
         self,
         *,
-        defaults: Optional[det.DetConfig] = None,
+        defaults: Optional[det.DefaultConfig] = None,
         client: Optional[det.Determined] = None,
         experiment_id: Optional[Union[str, int]] = None,
         trial_id: Optional[Union[str, int]] = None,

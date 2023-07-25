@@ -21,7 +21,7 @@ class IdentityDataset(torch.utils.data.Dataset):
 
 def main():
     det.init(
-        defaults=det.DetConfig(
+        defaults=det.DefaultConfig(
             name="unmanaged-20-checkpoints-advanced",
             hparams={
                 "lr": 1e-5,
@@ -30,8 +30,10 @@ def main():
             labels=["some", "set", "of", "labels"],
             description="torch identity example",
         ),
-        experiment_id="unmanaged-20-checkpoints-advanced",
-        trial_id="unmanaged-20-checkpoints-advanced",
+        unmanaged=det.UnmanagedConfig(
+            experiment_id="unmanaged-20-checkpoints-advanced",
+            trial_id="unmanaged-20-checkpoints-advanced",
+        ),
     )
 
     lr = det.info.trial.hparams["lr"]

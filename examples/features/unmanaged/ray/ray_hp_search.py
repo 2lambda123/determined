@@ -16,19 +16,23 @@ def objective(config):
     print(f"experiment name: {experiment_name} trial name: {trial_name}")
 
     det.init(
-        defaults=det.DetConfig(
+        defaults=det.DefaultConfig(
             name=experiment_name,
             hparams={
                 "hp": config["hp"],
             },
+            # We need to pass a non-single searcher config to have the WebUI display our experiment
+            # as HP search.
             searcher={
                 "name": "custom",
                 "metric": "loss",
                 "smaller_is_better": True,
             },
         ),
-        experiment_id=experiment_name,
-        trial_id=trial_name,
+        unmanaged=det.UnmanagedConfig(
+            experiment_id=experiment_name,
+            trial_id=trial_name,
+        ),
     )
 
     try:
