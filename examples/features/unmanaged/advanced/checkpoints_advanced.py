@@ -22,7 +22,7 @@ class IdentityDataset(torch.utils.data.Dataset):
 def main():
     det.init(
         defaults=det.DefaultConfig(
-            name="unmanaged-20-checkpoints-advanced",
+            name="unmanaged-checkpoints-advanced",
             hparams={
                 "lr": 1e-5,
                 "max_epochs": 10,
@@ -31,8 +31,8 @@ def main():
             description="torch identity example",
         ),
         unmanaged=det.UnmanagedConfig(
-            experiment_id="unmanaged-20-checkpoints-advanced",
-            trial_id="unmanaged-20-checkpoints-advanced",
+            experiment_id="unmanaged-checkpoints-advanced",
+            trial_id="unmanaged-checkpoints-advanced",
         ),
     )
 
