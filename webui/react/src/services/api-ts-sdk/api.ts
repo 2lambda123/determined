@@ -6510,13 +6510,14 @@ export interface V1Permission {
     scopeTypeMask?: V1ScopeTypeMask;
 }
 /**
- * List of permissions types. Value of the enum has 9xxxx for global only permissions. Permissions on the same object share the thousands place value like 2001 and 2002.   - PERMISSION_TYPE_UNSPECIFIED: The permission type is unknown.  - PERMISSION_TYPE_ADMINISTRATE_USER: Can create and update other users. Allows updating other users passwords making this permission give all other permissions effectively.  - PERMISSION_TYPE_CREATE_EXPERIMENT: Ability to create experiments.  - PERMISSION_TYPE_VIEW_EXPERIMENT_ARTIFACTS: Ability to view experiment's model code, checkpoints, trials.  - PERMISSION_TYPE_VIEW_EXPERIMENT_METADATA: Ability to view experiment's metadata such as experiment config, progress.  - PERMISSION_TYPE_UPDATE_EXPERIMENT: Ability to update experiment and experiment's lifecycle.  - PERMISSION_TYPE_UPDATE_EXPERIMENT_METADATA: Ability to update experiment's metadata.  - PERMISSION_TYPE_DELETE_EXPERIMENT: Ability to delete experiment.  - PERMISSION_TYPE_CREATE_NSC: Ability to create Notebooks, Shells, and Commands.  - PERMISSION_TYPE_VIEW_NSC: Ability to view Notebooks, Shells, and Commands.  - PERMISSION_TYPE_UPDATE_NSC: Ability to terminate Notebooks, Shells, and Commands.  - PERMISSION_TYPE_UPDATE_GROUP: Ability to create, update, and add / remove users from groups.  - PERMISSION_TYPE_CREATE_WORKSPACE: Ability to create workspaces.  - PERMISSION_TYPE_VIEW_WORKSPACE: Ability to view workspace.  - PERMISSION_TYPE_UPDATE_WORKSPACE: Ability to update workspace.  - PERMISSION_TYPE_DELETE_WORKSPACE: Ability to delete workspace.  - PERMISSION_TYPE_SET_WORKSPACE_AGENT_USER_GROUP: Ability to set workspace agent user group config.  - PERMISSION_TYPE_SET_WORKSPACE_CHECKPOINT_STORAGE_CONFIG: Ability to set workspace checkpoint storage config.  - PERMISSION_TYPE_CREATE_PROJECT: Ability to create projects.  - PERMISSION_TYPE_VIEW_PROJECT: Ability to view projects.  - PERMISSION_TYPE_UPDATE_PROJECT: Ability to update projects.  - PERMISSION_TYPE_DELETE_PROJECT: Ability to delete projects.  - PERMISSION_TYPE_ASSIGN_ROLES: Ability to assign roles to groups / users. If assigned at a workspace scope, can only assign roles to that workspace scope.  - PERMISSION_TYPE_VIEW_MODEL_REGISTRY: Ability to view model registry.  - PERMISSION_TYPE_EDIT_MODEL_REGISTRY: Ability to edit model registry.  - PERMISSION_TYPE_CREATE_MODEL_REGISTRY: Ability to create model registry.  - PERMISSION_TYPE_DELETE_MODEL_REGISTRY: Ability to delete model registry.  - PERMISSION_TYPE_DELETE_MODEL_VERSION: Ability to delete model version.  - PERMISSION_TYPE_DELETE_OTHER_USER_MODEL_REGISTRY: Ability to delete another user's model registry.  - PERMISSION_TYPE_DELETE_OTHER_USER_MODEL_VERSION: Ability to delete another user's model version.  - PERMISSION_TYPE_VIEW_MASTER_LOGS: Ability to view master logs.  - PERMISSION_TYPE_VIEW_CLUSTER_USAGE: Ability to view detailed cluster usage info.  - PERMISSION_TYPE_UPDATE_AGENTS: Ability to update agents.  - PERMISSION_TYPE_VIEW_SENSITIVE_AGENT_INFO: Ability to view sensitive subset of agent info.  - PERMISSION_TYPE_VIEW_MASTER_CONFIG: Ability to view master configs.  - PERMISSION_TYPE_UPDATE_MASTER_CONFIG: Ability to update master configs.  - PERMISSION_TYPE_CONTROL_STRICT_JOB_QUEUE: Ability to control strict job queue.  - PERMISSION_TYPE_VIEW_TEMPLATES: Ability to view templates.  - PERMISSION_TYPE_UPDATE_TEMPLATES: Ability to update templates.  - PERMISSION_TYPE_CREATE_TEMPLATES: Ability to create templates.  - PERMISSION_TYPE_DELETE_TEMPLATES: Ability to delete templates.  - PERMISSION_TYPE_UPDATE_ROLES: Ability to create and update role definitions.  - PERMISSION_TYPE_EDIT_WEBHOOKS: Ability to create and delete webhooks.
+ * List of permissions types. Value of the enum has 9xxxx for global only permissions. Permissions on the same object share the thousands place value like 2001 and 2002.   - PERMISSION_TYPE_UNSPECIFIED: The permission type is unknown.  - PERMISSION_TYPE_ADMINISTRATE_USER: Can create and update other users. Allows updating other users passwords making this permission give all other permissions effectively.  - PERMISSION_TYPE_ADMINISTRATE_OAUTH: Ability to manage OAuth clients and settings.  - PERMISSION_TYPE_CREATE_EXPERIMENT: Ability to create experiments.  - PERMISSION_TYPE_VIEW_EXPERIMENT_ARTIFACTS: Ability to view experiment's model code, checkpoints, trials.  - PERMISSION_TYPE_VIEW_EXPERIMENT_METADATA: Ability to view experiment's metadata such as experiment config, progress.  - PERMISSION_TYPE_UPDATE_EXPERIMENT: Ability to update experiment and experiment's lifecycle.  - PERMISSION_TYPE_UPDATE_EXPERIMENT_METADATA: Ability to update experiment's metadata.  - PERMISSION_TYPE_DELETE_EXPERIMENT: Ability to delete experiment.  - PERMISSION_TYPE_CREATE_NSC: Ability to create Notebooks, Shells, and Commands.  - PERMISSION_TYPE_VIEW_NSC: Ability to view Notebooks, Shells, and Commands.  - PERMISSION_TYPE_UPDATE_NSC: Ability to terminate Notebooks, Shells, and Commands.  - PERMISSION_TYPE_UPDATE_GROUP: Ability to create, update, and add / remove users from groups.  - PERMISSION_TYPE_CREATE_WORKSPACE: Ability to create workspaces.  - PERMISSION_TYPE_VIEW_WORKSPACE: Ability to view workspace.  - PERMISSION_TYPE_UPDATE_WORKSPACE: Ability to update workspace.  - PERMISSION_TYPE_DELETE_WORKSPACE: Ability to delete workspace.  - PERMISSION_TYPE_SET_WORKSPACE_AGENT_USER_GROUP: Ability to set workspace agent user group config.  - PERMISSION_TYPE_SET_WORKSPACE_CHECKPOINT_STORAGE_CONFIG: Ability to set workspace checkpoint storage config.  - PERMISSION_TYPE_CREATE_PROJECT: Ability to create projects.  - PERMISSION_TYPE_VIEW_PROJECT: Ability to view projects.  - PERMISSION_TYPE_UPDATE_PROJECT: Ability to update projects.  - PERMISSION_TYPE_DELETE_PROJECT: Ability to delete projects.  - PERMISSION_TYPE_ASSIGN_ROLES: Ability to assign roles to groups / users. If assigned at a workspace scope, can only assign roles to that workspace scope.  - PERMISSION_TYPE_VIEW_MODEL_REGISTRY: Ability to view model registry.  - PERMISSION_TYPE_EDIT_MODEL_REGISTRY: Ability to edit model registry.  - PERMISSION_TYPE_CREATE_MODEL_REGISTRY: Ability to create model registry.  - PERMISSION_TYPE_DELETE_MODEL_REGISTRY: Ability to delete model registry.  - PERMISSION_TYPE_DELETE_MODEL_VERSION: Ability to delete model version.  - PERMISSION_TYPE_DELETE_OTHER_USER_MODEL_REGISTRY: Ability to delete another user's model registry.  - PERMISSION_TYPE_DELETE_OTHER_USER_MODEL_VERSION: Ability to delete another user's model version.  - PERMISSION_TYPE_VIEW_MASTER_LOGS: Ability to view master logs.  - PERMISSION_TYPE_VIEW_CLUSTER_USAGE: Ability to view detailed cluster usage info.  - PERMISSION_TYPE_UPDATE_AGENTS: Ability to update agents.  - PERMISSION_TYPE_VIEW_SENSITIVE_AGENT_INFO: Ability to view sensitive subset of agent info.  - PERMISSION_TYPE_VIEW_MASTER_CONFIG: Ability to view master configs.  - PERMISSION_TYPE_UPDATE_MASTER_CONFIG: Ability to update master configs.  - PERMISSION_TYPE_CONTROL_STRICT_JOB_QUEUE: Ability to control strict job queue.  - PERMISSION_TYPE_VIEW_TEMPLATES: Ability to view templates.  - PERMISSION_TYPE_UPDATE_TEMPLATES: Ability to update templates.  - PERMISSION_TYPE_CREATE_TEMPLATES: Ability to create templates.  - PERMISSION_TYPE_DELETE_TEMPLATES: Ability to delete templates.  - PERMISSION_TYPE_UPDATE_ROLES: Ability to create and update role definitions.  - PERMISSION_TYPE_EDIT_WEBHOOKS: Ability to create and delete webhooks.
  * @export
  * @enum {string}
  */
 export const V1PermissionType = {
     UNSPECIFIED: 'PERMISSION_TYPE_UNSPECIFIED',
     ADMINISTRATEUSER: 'PERMISSION_TYPE_ADMINISTRATE_USER',
+    ADMINISTRATEOAUTH: 'PERMISSION_TYPE_ADMINISTRATE_OAUTH',
     CREATEEXPERIMENT: 'PERMISSION_TYPE_CREATE_EXPERIMENT',
     VIEWEXPERIMENTARTIFACTS: 'PERMISSION_TYPE_VIEW_EXPERIMENT_ARTIFACTS',
     VIEWEXPERIMENTMETADATA: 'PERMISSION_TYPE_VIEW_EXPERIMENT_METADATA',
@@ -6961,17 +6962,11 @@ export interface V1PostUserResponse {
  */
 export interface V1PostUserSettingRequest {
     /**
-     * Storage path for setting.
-     * @type {string}
-     * @memberof V1PostUserSettingRequest
-     */
-    storagePath: string;
-    /**
      * Setting key value pair.
-     * @type {V1UserWebSetting}
+     * @type {Array<V1UserWebSetting>}
      * @memberof V1PostUserSettingRequest
      */
-    setting: V1UserWebSetting;
+    settings: Array<V1UserWebSetting>;
 }
 /**
  * Response to PostUserSettingRequest.
@@ -7435,7 +7430,7 @@ export interface V1ReportTrialMetricsRequest {
      * @type {string}
      * @memberof V1ReportTrialMetricsRequest
      */
-    type: string;
+    group: string;
 }
 /**
  * 
@@ -26632,18 +26627,18 @@ export const TrialsApiFetchParamCreator = function (configuration?: Configuratio
          * 
          * @summary Stream one or more trial's metrics.
          * @param {Array<number>} trialIds Trial IDs to get metrics for.
-         * @param {string} type The type of metrics to get eg 'training', 'validation', etc.
+         * @param {string} group The group of metrics to get eg 'training', 'validation', etc.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getMetrics(trialIds: Array<number>, type: string, options: any = {}): FetchArgs {
+        getMetrics(trialIds: Array<number>, group: string, options: any = {}): FetchArgs {
             // verify required parameter 'trialIds' is not null or undefined
             if (trialIds === null || trialIds === undefined) {
                 throw new RequiredError('trialIds','Required parameter trialIds was null or undefined when calling getMetrics.');
             }
-            // verify required parameter 'type' is not null or undefined
-            if (type === null || type === undefined) {
-                throw new RequiredError('type','Required parameter type was null or undefined when calling getMetrics.');
+            // verify required parameter 'group' is not null or undefined
+            if (group === null || group === undefined) {
+                throw new RequiredError('group','Required parameter group was null or undefined when calling getMetrics.');
             }
             const localVarPath = `/api/v1/trials/metrics/trial_metrics`;
             const localVarUrlObj = new URL(localVarPath, BASE_PATH);
@@ -26663,8 +26658,8 @@ export const TrialsApiFetchParamCreator = function (configuration?: Configuratio
                 localVarQueryParameter['trialIds'] = trialIds
             }
             
-            if (type !== undefined) {
-                localVarQueryParameter['type'] = type
+            if (group !== undefined) {
+                localVarQueryParameter['group'] = group
             }
             
             objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
@@ -27068,12 +27063,12 @@ export const TrialsApiFp = function (configuration?: Configuration) {
          * 
          * @summary Stream one or more trial's metrics.
          * @param {Array<number>} trialIds Trial IDs to get metrics for.
-         * @param {string} type The type of metrics to get eg 'training', 'validation', etc.
+         * @param {string} group The group of metrics to get eg 'training', 'validation', etc.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getMetrics(trialIds: Array<number>, type: string, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<StreamResultOfV1GetMetricsResponse> {
-            const localVarFetchArgs = TrialsApiFetchParamCreator(configuration).getMetrics(trialIds, type, options);
+        getMetrics(trialIds: Array<number>, group: string, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<StreamResultOfV1GetMetricsResponse> {
+            const localVarFetchArgs = TrialsApiFetchParamCreator(configuration).getMetrics(trialIds, group, options);
             return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -27266,12 +27261,12 @@ export const TrialsApiFactory = function (configuration?: Configuration, fetch?:
          * 
          * @summary Stream one or more trial's metrics.
          * @param {Array<number>} trialIds Trial IDs to get metrics for.
-         * @param {string} type The type of metrics to get eg 'training', 'validation', etc.
+         * @param {string} group The group of metrics to get eg 'training', 'validation', etc.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getMetrics(trialIds: Array<number>, type: string, options?: any) {
-            return TrialsApiFp(configuration).getMetrics(trialIds, type, options)(fetch, basePath);
+        getMetrics(trialIds: Array<number>, group: string, options?: any) {
+            return TrialsApiFp(configuration).getMetrics(trialIds, group, options)(fetch, basePath);
         },
         /**
          * 
@@ -27395,13 +27390,13 @@ export class TrialsApi extends BaseAPI {
      * 
      * @summary Stream one or more trial's metrics.
      * @param {Array<number>} trialIds Trial IDs to get metrics for.
-     * @param {string} type The type of metrics to get eg 'training', 'validation', etc.
+     * @param {string} group The group of metrics to get eg 'training', 'validation', etc.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof TrialsApi
      */
-    public getMetrics(trialIds: Array<number>, type: string, options?: any) {
-        return TrialsApiFp(this.configuration).getMetrics(trialIds, type, options)(this.fetch, this.basePath)
+    public getMetrics(trialIds: Array<number>, group: string, options?: any) {
+        return TrialsApiFp(this.configuration).getMetrics(trialIds, group, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -27826,7 +27821,7 @@ export const UsersApiFetchParamCreator = function (configuration?: Configuration
         },
         /**
          * 
-         * @summary Patch a user's settings for website
+         * @summary Post a user's settings for website
          * @param {V1PostUserSettingRequest} body
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -28103,7 +28098,7 @@ export const UsersApiFp = function (configuration?: Configuration) {
         },
         /**
          * 
-         * @summary Patch a user's settings for website
+         * @summary Post a user's settings for website
          * @param {V1PostUserSettingRequest} body
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -28252,7 +28247,7 @@ export const UsersApiFactory = function (configuration?: Configuration, fetch?: 
         },
         /**
          * 
-         * @summary Patch a user's settings for website
+         * @summary Post a user's settings for website
          * @param {V1PostUserSettingRequest} body
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -28391,7 +28386,7 @@ export class UsersApi extends BaseAPI {
     
     /**
      * 
-     * @summary Patch a user's settings for website
+     * @summary Post a user's settings for website
      * @param {V1PostUserSettingRequest} body
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}

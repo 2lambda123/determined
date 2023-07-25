@@ -1,4 +1,4 @@
-import { Rectangle } from '@glideapps/glide-data-grid';
+import { Rectangle } from '@hpe.com/glide-data-grid';
 import { Space } from 'antd';
 import { isLeft } from 'fp-ts/lib/Either';
 import { observable, useObservable } from 'micro-observables';
@@ -15,6 +15,7 @@ import {
 import { Column, Columns } from 'components/kit/Columns';
 import Empty from 'components/kit/Empty';
 import Pagination from 'components/kit/Pagination';
+import useMobile from 'hooks/useMobile';
 import usePolling from 'hooks/usePolling';
 import useResize from 'hooks/useResize';
 import useScrollbarWidth from 'hooks/useScrollbarWidth';
@@ -44,10 +45,12 @@ import {
   settingsConfigGlobal,
 } from './F_ExperimentList.settings';
 import {
+  columnWidthsFallback,
   ExperimentColumn,
   experimentColumns,
   MIN_COLUMN_WIDTH,
   MULTISELECT,
+  NO_PINS_WIDTH,
 } from './glide-table/columns';
 import { Error, NoExperiments } from './glide-table/exceptions';
 import GlideTable, { SCROLL_SET_COUNT_NEEDED } from './glide-table/GlideTable';
@@ -81,7 +84,7 @@ const INITIAL_LOADING_EXPERIMENTS: Loadable<ExperimentWithTrial>[] = new Array(P
   NotLoaded,
 );
 
-const STATIC_COLUMNS = [MULTISELECT, 'name'];
+const STATIC_COLUMNS = [MULTISELECT];
 
 const F_ExperimentList: React.FC<Props> = ({ project }) => {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -118,6 +121,7 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
     Loaded: (formset: FilterFormSet) => formset.filterGroup.children,
     NotLoaded: () => [],
   });
+  const isMobile = useMobile();
 
   const setPinnedColumnsCount = useCallback(
     (newCount: number) => {
@@ -401,9 +405,9 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
 
   const onRowHeightChange = useCallback(
     (newRowHeight: RowHeight) => {
-      updateSettings({ rowHeight: newRowHeight });
+      updateGlobalSettings({ rowHeight: newRowHeight });
     },
-    [updateSettings],
+    [updateGlobalSettings],
   );
 
   useEffect(() => {
@@ -433,9 +437,13 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
     (cPage: number, cPageSize: number) => {
       updateSettings({ pageLimit: cPageSize });
       // Pagination component is assuming starting index of 1.
+      if (cPage - 1 !== page) {
+        setExperiments(Array(cPageSize).fill(NotLoaded));
+        setClearSelectionTrigger((t) => t + 1);
+      }
       setPage(cPage - 1);
     },
-    [updateSettings],
+    [page, updateSettings],
   );
 
   const handleToggleComparisonView = useCallback(() => {
@@ -449,10 +457,12 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
   const scrollbarWidth = useScrollbarWidth();
 
   const comparisonViewTableWidth = useMemo(() => {
+    if (pinnedColumns.length === 1) return NO_PINS_WIDTH;
     return Math.min(
       containerWidth - 30,
       pinnedColumns.reduce(
-        (totalWidth, curCol) => totalWidth + settings.columnWidths[curCol] ?? 0,
+        (totalWidth, curCol) =>
+          totalWidth + (settings.columnWidths[curCol] ?? columnWidthsFallback),
         scrollbarWidth,
       ),
     );
@@ -508,9 +518,18 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
     [isLoading, experiments],
   );
 
+  const showPagination = useMemo(() => {
+    return (
+      isPagedView &&
+      (!settings.compare || settings.pinnedColumnsCount !== 0) &&
+      !(isMobile && settings.compare)
+    );
+  }, [isMobile, isPagedView, settings.compare, settings.pinnedColumnsCount]);
+
   return (
     <>
       <TableActionBar
+        compareViewOn={settings.compare}
         excludedExperimentIds={excludedExperimentIds}
         experiments={experiments}
         expListView={globalSettings.expListView}
@@ -521,7 +540,7 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
         isOpenFilter={isOpenFilter}
         project={project}
         projectColumns={projectColumns}
-        rowHeight={settings.rowHeight}
+        rowHeight={globalSettings.rowHeight}
         selectAll={selectAll}
         selectedExperimentIds={selectedExperimentIds}
         setExpListView={updateExpListView}
@@ -568,7 +587,7 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
                 pinnedColumnsCount={isLoadingSettings ? 0 : settings.pinnedColumnsCount}
                 project={project}
                 projectColumns={projectColumns}
-                rowHeight={settings.rowHeight}
+                rowHeight={globalSettings.rowHeight}
                 scrollPositionSetCount={scrollPositionSetCount}
                 selectAll={selectAll}
                 selectedExperimentIds={selectedExperimentIds}
@@ -586,7 +605,7 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
                 onSortChange={onSortChange}
               />
             </ComparisonView>
-            {isPagedView && (
+            {showPagination && (
               <Columns>
                 <Column align="right">
                   <Pagination
