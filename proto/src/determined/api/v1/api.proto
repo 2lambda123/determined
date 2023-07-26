@@ -649,8 +649,8 @@ service Determined {
   // Put a trial.
   rpc PutTrial(PutTrialRequest) returns (PutTrialResponse) {
     option (google.api.http) = {
-      put: "/api/v1/trials/by-external-id/{external_trial_id}"
-      body: "create_trial_request"
+      put: "/api/v1/trials"
+      body: "*"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: [ "Internal" ]

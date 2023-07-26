@@ -7326,6 +7326,25 @@ export interface V1PutTemplateResponse {
     template?: V1Template;
 }
 /**
+ * Put a trial.
+ * @export
+ * @interface V1PutTrialRequest
+ */
+export interface V1PutTrialRequest {
+    /**
+     * CreateTrialRequest payload.
+     * @type {V1CreateTrialRequest}
+     * @memberof V1PutTrialRequest
+     */
+    createTrialRequest?: V1CreateTrialRequest;
+    /**
+     * External trial id.
+     * @type {string}
+     * @memberof V1PutTrialRequest
+     */
+    externalTrialId?: string;
+}
+/**
  * Response to PutTrialRequest.
  * @export
  * @interface V1PutTrialResponse
@@ -17800,22 +17819,16 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
         /**
          * 
          * @summary Put a trial.
-         * @param {string} externalTrialId External trial id.
-         * @param {V1CreateTrialRequest} body CreateTrialRequest payload.
+         * @param {V1PutTrialRequest} body
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        putTrial(externalTrialId: string, body: V1CreateTrialRequest, options: any = {}): FetchArgs {
-            // verify required parameter 'externalTrialId' is not null or undefined
-            if (externalTrialId === null || externalTrialId === undefined) {
-                throw new RequiredError('externalTrialId','Required parameter externalTrialId was null or undefined when calling putTrial.');
-            }
+        putTrial(body: V1PutTrialRequest, options: any = {}): FetchArgs {
             // verify required parameter 'body' is not null or undefined
             if (body === null || body === undefined) {
                 throw new RequiredError('body','Required parameter body was null or undefined when calling putTrial.');
             }
-            const localVarPath = `/api/v1/trials/by-external-id/{externalTrialId}`
-                .replace(`{${"externalTrialId"}}`, encodeURIComponent(String(externalTrialId)));
+            const localVarPath = `/api/v1/trials`;
             const localVarUrlObj = new URL(localVarPath, BASE_PATH);
             const localVarRequestOptions = { method: 'PUT', ...options };
             const localVarHeaderParameter = {} as any;
@@ -19274,13 +19287,12 @@ export const InternalApiFp = function (configuration?: Configuration) {
         /**
          * 
          * @summary Put a trial.
-         * @param {string} externalTrialId External trial id.
-         * @param {V1CreateTrialRequest} body CreateTrialRequest payload.
+         * @param {V1PutTrialRequest} body
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        putTrial(externalTrialId: string, body: V1CreateTrialRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1PutTrialResponse> {
-            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).putTrial(externalTrialId, body, options);
+        putTrial(body: V1PutTrialRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1PutTrialResponse> {
+            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).putTrial(body, options);
             return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -20009,13 +20021,12 @@ export const InternalApiFactory = function (configuration?: Configuration, fetch
         /**
          * 
          * @summary Put a trial.
-         * @param {string} externalTrialId External trial id.
-         * @param {V1CreateTrialRequest} body CreateTrialRequest payload.
+         * @param {V1PutTrialRequest} body
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        putTrial(externalTrialId: string, body: V1CreateTrialRequest, options?: any) {
-            return InternalApiFp(configuration).putTrial(externalTrialId, body, options)(fetch, basePath);
+        putTrial(body: V1PutTrialRequest, options?: any) {
+            return InternalApiFp(configuration).putTrial(body, options)(fetch, basePath);
         },
         /**
          * 
@@ -20697,14 +20708,13 @@ export class InternalApi extends BaseAPI {
     /**
      * 
      * @summary Put a trial.
-     * @param {string} externalTrialId External trial id.
-     * @param {V1CreateTrialRequest} body CreateTrialRequest payload.
+     * @param {V1PutTrialRequest} body
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof InternalApi
      */
-    public putTrial(externalTrialId: string, body: V1CreateTrialRequest, options?: any) {
-        return InternalApiFp(this.configuration).putTrial(externalTrialId, body, options)(this.fetch, this.basePath)
+    public putTrial(body: V1PutTrialRequest, options?: any) {
+        return InternalApiFp(this.configuration).putTrial(body, options)(this.fetch, this.basePath)
     }
     
     /**

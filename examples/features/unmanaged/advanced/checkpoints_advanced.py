@@ -31,8 +31,8 @@ def main():
             description="torch identity example",
         ),
         unmanaged=det.UnmanagedConfig(
-            experiment_id="unmanaged-checkpoints-advanced",
-            trial_id="unmanaged-checkpoints-advanced",
+            external_experiment_id="unmanaged-checkpoints-advanced",
+            external_trial_id="unmanaged-checkpoints-advanced",
         ),
     )
 

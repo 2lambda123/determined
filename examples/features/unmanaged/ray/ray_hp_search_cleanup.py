@@ -31,8 +31,8 @@ class Trainable(tune.Trainable):
                 },
             ),
             unmanaged=det.UnmanagedConfig(
-                experiment_id=experiment_name,
-                trial_id=trial_name,
+                external_experiment_id=experiment_name,
+                external_trial_id=trial_name,
             ),
         )
 

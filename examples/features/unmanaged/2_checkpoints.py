@@ -13,11 +13,11 @@ def main():
             # checkpoint_storage="/tmp/determined-cp",
         ),
         unmanaged=det.UnmanagedConfig(
-            experiment_id="test-unmanaged-2-checkpoints",
-            trial_id="test-unmanaged-2-checkpoints",
+            external_experiment_id="test-unmanaged-2-checkpoints",
+            external_trial_id="test-unmanaged-2-checkpoints",
             # e.g., requeued jobs on slurm:
-            # experiment_id=f"some-prefix-{os.environ[SLURM_JOB_ID}",
-            # trial_id=f"some-prefix-{os.environ[SLURM_JOB_ID}",
+            # external_experiment_id=f"some-prefix-{os.environ[SLURM_JOB_ID}",
+            # external_trial_id=f"some-prefix-{os.environ[SLURM_JOB_ID}",
         ),
     )
 

@@ -2535,6 +2535,7 @@ func (a *apiServer) PutTrial(ctx context.Context, req *apiv1.PutTrialRequest) (
 	}
 	err = tx.NewSelect().Model(&trial).
 		Column("id").
+		Where("experiment_id = ?", req.CreateTrialRequest.ExperimentId).
 		Where("external_trial_id = ?", req.ExternalTrialId).
 		Scan(ctx)
 	if err != nil {
@@ -2552,9 +2553,6 @@ func (a *apiServer) PutTrial(ctx context.Context, req *apiv1.PutTrialRequest) (
 		}
 
 		return nil, err
-	}
-	if trial.ExperimentID != int(req.CreateTrialRequest.ExperimentId) {
-		return nil, fmt.Errorf("submitted experiment id does not match the existing value")
 	}
 
 	if err = tx.Commit(); err != nil {

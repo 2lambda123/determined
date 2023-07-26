@@ -128,11 +128,19 @@ def _put_unmanaged_trial(
     sess = client._session
     assert sess
 
-    req2 = bindings.v1CreateTrialRequest(experimentId=exp_id, hparams=hparams, unmanaged=True)
-    resp2 = bindings.put_PutTrial(session=sess, body=req2, externalTrialId=external_trial_id)
+    req_create = bindings.v1CreateTrialRequest(
+        experimentId=exp_id,
+        hparams=hparams,
+        unmanaged=True,
+    )
+    req_put = bindings.v1PutTrialRequest(
+        createTrialRequest=req_create,
+        externalTrialId=external_trial_id,
+    )
+    resp = bindings.put_PutTrial(session=sess, body=req_put)
 
-    trial_id = resp2.trial.id
-    task_id = resp2.trial.taskId
+    trial_id = resp.trial.id
+    task_id = resp.trial.taskId
     assert task_id
     return trial_id, task_id
 
@@ -284,6 +292,10 @@ def get_or_create_experiment_and_trial(
         elif isinstance(trial_id, str):
             raise NotImplementedError
     elif isinstance(experiment_id, str):
+        # TODO(ilia): Detect if >1 trials exist in the experiment.
+        # If yes, and the experiment searcher config is `single`, patch the experiment
+        # to switch the search config to `custom` searcher.
+        # This should switch WebUI into hp search UI for these experiments.
         if trial_id is None:
             exp_id = put_unmanaged_experiment(client, config_text, experiment_id, distributed)
             trial_id, task_id = create_unmanaged_trial(client, exp_id, hparams, distributed)

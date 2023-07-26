@@ -1,3 +1,4 @@
+import atexit
 import collections
 import datetime
 import queue
@@ -87,12 +88,13 @@ QueueElement = Union[str, ShutdownMessage]
 
 class LogSender(threading.Thread):
     def __init__(self, session: api.Session, logs_metadata: Dict) -> None:
-        super().__init__()
         self._queue = queue.Queue(maxsize=SHIP_QUEUE_MAX_SIZE)  # type: queue.Queue[QueueElement]
         self._logs = collections.deque()  # type: collections.deque[str]
         self._session = session
         self._logs_metadata = logs_metadata
         self._buf = ""
+
+        super().__init__(daemon=True)
 
     def write(self, data: str) -> None:
         self._queue.put(data)
@@ -173,14 +175,21 @@ class UnmanagedTrialLogShipper(LogShipper):
 
         self._log_sender.start()
 
+        atexit.register(self._exit_handler)
+
         return self
+
+    def _exit_handler(self) -> None:
+        self.close()
 
     def close(
         self,
-        exc_type: Optional[type],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: Optional[type] = None,
+        exc_val: Optional[BaseException] = None,
+        exc_tb: Optional[TracebackType] = None,
     ) -> "LogShipper":
+        atexit.unregister(self._exit_handler)
+
         sys.stdout, sys.stderr = self._original_stdout, self._original_stderr
         self._log_sender.close()
         self._log_sender.join()

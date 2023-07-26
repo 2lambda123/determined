@@ -9462,6 +9462,40 @@ class v1PutTemplateResponse(Printable):
             out["template"] = None if self.template is None else self.template.to_json(omit_unset)
         return out
 
+class v1PutTrialRequest(Printable):
+    createTrialRequest: "typing.Optional[v1CreateTrialRequest]" = None
+    externalTrialId: "typing.Optional[str]" = None
+
+    def __init__(
+        self,
+        *,
+        createTrialRequest: "typing.Union[v1CreateTrialRequest, None, Unset]" = _unset,
+        externalTrialId: "typing.Union[str, None, Unset]" = _unset,
+    ):
+        if not isinstance(createTrialRequest, Unset):
+            self.createTrialRequest = createTrialRequest
+        if not isinstance(externalTrialId, Unset):
+            self.externalTrialId = externalTrialId
+
+    @classmethod
+    def from_json(cls, obj: Json) -> "v1PutTrialRequest":
+        kwargs: "typing.Dict[str, typing.Any]" = {
+        }
+        if "createTrialRequest" in obj:
+            kwargs["createTrialRequest"] = v1CreateTrialRequest.from_json(obj["createTrialRequest"]) if obj["createTrialRequest"] is not None else None
+        if "externalTrialId" in obj:
+            kwargs["externalTrialId"] = obj["externalTrialId"]
+        return cls(**kwargs)
+
+    def to_json(self, omit_unset: bool = False) -> typing.Dict[str, typing.Any]:
+        out: "typing.Dict[str, typing.Any]" = {
+        }
+        if not omit_unset or "createTrialRequest" in vars(self):
+            out["createTrialRequest"] = None if self.createTrialRequest is None else self.createTrialRequest.to_json(omit_unset)
+        if not omit_unset or "externalTrialId" in vars(self):
+            out["externalTrialId"] = self.externalTrialId
+        return out
+
 class v1PutTrialResponse(Printable):
 
     def __init__(
@@ -17158,13 +17192,12 @@ def put_PutTemplate(
 def put_PutTrial(
     session: "api.Session",
     *,
-    body: "v1CreateTrialRequest",
-    externalTrialId: str,
+    body: "v1PutTrialRequest",
 ) -> "v1PutTrialResponse":
     _params = None
     _resp = session._do_request(
         method="PUT",
-        path=f"/api/v1/trials/by-external-id/{externalTrialId}",
+        path="/api/v1/trials",
         params=_params,
         json=body.to_json(True),
         data=None,

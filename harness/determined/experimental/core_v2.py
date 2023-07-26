@@ -92,8 +92,18 @@ class UnmanagedConfig:
     workspace: Optional[str] = None
     project: Optional[str] = None
     # External experiment & trial ids.
-    experiment_id: Optional[Union[str, int]] = None
-    trial_id: Optional[Union[str, int]] = None
+    # `external_experiment_id` is used to uniquely identify an experiment when grouping
+    # multiple trials as one HP search, or if any trial within this experiment will be resumed.
+    # `external_trial_id` is used to uniquely identify the resumed trial within the experiment.
+    # if `external_trial_id` is specified, `external_experiment_id` MUST be passed as well.
+    #
+    # If you are going to resume trials, whether in hp search or single-trial experiments,
+    # specify both `external_experiment_id` and `external_trial_id`.
+    # If you are going to use hp search, but will not resume trials,
+    # specifing the `external_experiment_id` is sufficient.
+    # If you are not going to use either feature, omit these options.
+    external_experiment_id: Optional[Union[str, int]] = None
+    external_trial_id: Optional[Union[str, int]] = None
 
 
 def _set_globals() -> None:
@@ -181,8 +191,8 @@ def init(
     unmanaged_info = unmanaged_utils.get_or_create_experiment_and_trial(
         client,
         config_text=config_text,
-        experiment_id=unmanaged_config.experiment_id,
-        trial_id=unmanaged_config.trial_id,
+        experiment_id=unmanaged_config.external_experiment_id,
+        trial_id=unmanaged_config.external_trial_id,
         distributed=distributed,
         hparams=defaulted_config.hparams,
     )

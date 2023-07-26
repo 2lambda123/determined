@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+from typing import List
 
 import pytest
 
@@ -10,13 +11,25 @@ from tests import ray_utils
 EXAMPLES_ROOT = conf.EXAMPLES_PATH / "features" / "unmanaged"
 
 
-@pytest.mark.e2e_cpu
-def test_unmanaged() -> None:
+def _run_unmanaged_script(cmd: List) -> None:
     master_url = conf.make_master_url()
-    exp_path = EXAMPLES_ROOT / "1_singleton.py"
     env = os.environ.copy()
     env["DET_MASTER"] = master_url
-    subprocess.run(["python", exp_path], env=env, check=True)
+    subprocess.run(cmd, env=env, check=True)
+
+
+@pytest.mark.e2e_cpu
+def test_unmanaged() -> None:
+    exp_path = EXAMPLES_ROOT / "1_singleton.py"
+    _run_unmanaged_script(["python", exp_path])
+
+
+@pytest.mark.e2e_cpu
+@pytest.mark.timeout(10)
+def test_unmanaged_termination() -> None:
+    # Ensure an erroring-out code does not hang due to a background thread.
+    exp_path = EXAMPLES_ROOT / "1_error.py"
+    _run_unmanaged_script(["python", exp_path])
 
 
 @pytest.mark.e2e_cpu
