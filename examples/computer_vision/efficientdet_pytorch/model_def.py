@@ -59,7 +59,7 @@ class EffDetTrial(PyTorchTrial):
             pretrained_backbone=self.args.pretrained_backbone,
             redundant_bias=self.args.redundant_bias,
             label_smoothing=self.args.smoothing,
-            new_focal=self.args.new_focal,
+            legacy_focal=self.args.new_focal,
             jit_loss=self.args.jit_loss,
             bench_labeler=self.args.bench_labeler,
             checkpoint_path=self.args.initial_checkpoint,
