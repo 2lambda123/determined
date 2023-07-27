@@ -102,8 +102,8 @@ class UnmanagedConfig:
     # If you are going to use hp search, but will not resume trials,
     # specifing the `external_experiment_id` is sufficient.
     # If you are not going to use either feature, omit these options.
-    external_experiment_id: Optional[Union[str, int]] = None
-    external_trial_id: Optional[Union[str, int]] = None
+    external_experiment_id: Optional[str] = None
+    external_trial_id: Optional[str] = None
 
 
 def _set_globals() -> None:
