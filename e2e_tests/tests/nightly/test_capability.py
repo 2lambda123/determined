@@ -45,7 +45,8 @@ def test_detr_coco_pytorch_const() -> None:
     exp.run_basic_test_with_temp_config(config, conf.cv_examples_path("detr_coco_pytorch"), 1)
 
 
-#@pytest.mark.nightly
+@pytest.mark.nightly
+@pytest.mark.skip(reason="this test is disabled awaiting the example pruning effort")
 def test_efficientdet_coco_pytorch_const() -> None:
     config = conf.load_config(conf.cv_examples_path("efficientdet_pytorch/const_fake.yaml"))
     config = conf.set_max_length(config, {"batches": 200})

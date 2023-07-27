@@ -19,7 +19,8 @@ def set_docker_image(config: Dict) -> Dict:
     return config
 
 
-#@pytest.mark.model_hub_transformers
+@pytest.mark.model_hub_transformers
+@pytest.mark.skip(reason="this test is disabled awaiting the example pruning effort")
 def test_token_classification_ner() -> None:
     example_path = conf.model_hub_examples_path("huggingface/token-classification")
     config = conf.load_config(os.path.join(example_path, "ner_config.yaml"))
@@ -148,7 +149,8 @@ def test_squad_v2_with_beam_search() -> None:
 
 
 # Same test with mixed precision enabled.
-#@pytest.mark.model_hub_transformers_amp
+@pytest.mark.model_hub_transformers_amp
+@pytest.mark.skip(reason="this test is disabled awaiting the example pruning effort")
 def test_token_classification_ner_amp() -> None:
     example_path = conf.model_hub_examples_path("huggingface/token-classification")
     config = conf.load_config(os.path.join(example_path, "ner_config.yaml"))
@@ -187,7 +189,8 @@ def test_language_modeling_mlm_amp() -> None:
     exp.run_basic_test_with_temp_config(config, example_path, 1)
 
 
-#@pytest.mark.model_hub_transformers_amp
+@pytest.mark.model_hub_transformers_amp
+@pytest.mark.skip(reason="this test is disabled awaiting the example pruning effort")
 def test_language_modeling_plm_amp() -> None:
     example_path = conf.model_hub_examples_path("huggingface/language-modeling")
     config = conf.load_config(os.path.join(example_path, "plm_config.yaml"))
