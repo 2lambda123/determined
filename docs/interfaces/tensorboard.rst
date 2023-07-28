@@ -69,7 +69,7 @@ Example job configuration file:
 .. code:: yaml
 
    environment:
-     image: determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-0.23.3
+     image: determinedai/environments-dev:cuda-11.3-pytorch-1.12-tf-2.11-gpu-0.24.0
    bind_mounts:
      - host_path: /my/agent/path
        container_path: /my/container/path
