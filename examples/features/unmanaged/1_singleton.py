@@ -8,7 +8,7 @@ from determined.experimental import core_v2 as det
 def main():
     det.init(
         # For managed experiments, will be overridden by the yaml config.
-        # Future: merge this and yaml configs at runtime.
+        # Future: merge this and yaml configs field-by-field at runtime.
         defaults=det.DefaultConfig(
             name="unmanaged-1-singleton",
             # labels=["some", "set", "of", "labels"],

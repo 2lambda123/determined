@@ -13,15 +13,13 @@ class DetLogger(Logger):
         self,
         *,
         defaults: Optional[det.DefaultConfig] = None,
+        unmanaged: Optional[det.UnmanagedConfig] = None,
         client: Optional[det.Determined] = None,
-        experiment_id: Optional[Union[str, int]] = None,
-        trial_id: Optional[Union[str, int]] = None,
     ) -> None:
         self._kwargs = {
             "defaults": defaults,
             "client": client,
-            "experiment_id": experiment_id,
-            "trial_id": trial_id,
+            "unmanaged": unmanaged,
         }
         self._initialized = False
 
