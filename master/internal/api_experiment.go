@@ -2407,7 +2407,7 @@ func (a *apiServer) SearchExperiments(
 }
 
 func (a *apiServer) createTrialTx(
-	ctx context.Context, idb bun.IDB, req *apiv1.CreateTrialRequest, externalTrialID *string,
+	ctx context.Context, tx bun.Tx, req *apiv1.CreateTrialRequest, externalTrialID *string,
 ) (*apiv1.CreateTrialResponse, error) {
 	if !req.Unmanaged {
 		return nil, errors.New("only unmanaged trials are supported")
@@ -2447,7 +2447,7 @@ func (a *apiServer) createTrialTx(
 		trialModel.ExternalTrialID = externalTrialID
 	}
 
-	if err := db.AddTaskTx(ctx, idb, &model.Task{
+	if err := db.AddTaskTx(ctx, tx, &model.Task{
 		TaskID:     trialModel.TaskID,
 		TaskType:   model.TaskTypeTrial,
 		StartTime:  time.Now(),
@@ -2457,7 +2457,7 @@ func (a *apiServer) createTrialTx(
 		return nil, err
 	}
 
-	if err := db.UpsertTrialTxByExternalID(ctx, idb, trialModel); err != nil {
+	if err := db.UpsertTrialTxByExternalID(ctx, tx, trialModel); err != nil {
 		return nil, err
 	}
 
@@ -2465,7 +2465,7 @@ func (a *apiServer) createTrialTx(
 		return nil, fmt.Errorf("unexpected task_id change: %s -> %s", trialModel.TaskID, taskID)
 	}
 
-	trialRes, err := trials.ProtoGetTrialsPlusTx(ctx, idb, []int{trialModel.ID})
+	trialRes, err := trials.ProtoGetTrialsPlusTx(ctx, tx, []int{trialModel.ID})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get trial %d", trialModel.ID)
 	}
