@@ -55,13 +55,7 @@ const useMetricNames = (
          */
         const newMetrics = (event.metricNames ?? [])
           .filter((metric) => !xAxisMetrics.includes(metric.name))
-          .map((metric) => {
-            const dividerPosition = metric.name.indexOf('/');
-            const name =
-              dividerPosition === -1 ? metric.name : metric.name.substring(dividerPosition + 1);
-            return { name, type: metric.group };
-          })
-          .filter((metric): metric is Metric => !!metric);
+          .map((metric) => ({ name: metric.name, type: metric.group } as Metric));
 
         if (newMetrics.length > 0) {
           setMetrics((prevMetrics) => {
@@ -86,7 +80,6 @@ const useMetricNames = (
             return Loaded(
               Array.from(updatedMetricsSet)
                 .map((metricKey) => metricKeyToMetric(metricKey))
-                .filter((metric): metric is Metric => !!metric)
                 .sort(metricSorter),
             );
           });
