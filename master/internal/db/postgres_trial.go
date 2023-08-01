@@ -59,6 +59,33 @@ func AddTrialTx(ctx context.Context, idb bun.IDB, trial *model.Trial) error {
 	return nil
 }
 
+// UpsertTrialTxByExternalID UPSERTs the trial with respect to the external_trial_id.
+func UpsertTrialTxByExternalID(ctx context.Context, idb bun.IDB, trial *model.Trial) error {
+	if trial.ID != 0 {
+		return errors.Errorf("error adding a trial with non-zero id %v", trial.ID)
+	}
+
+	// HACK(ilia): Can't make hparams field compatible between old and bun, thus a `.Value` hack.
+	bytes, err := json.Marshal(trial.HParams)
+	if err != nil {
+		return fmt.Errorf("failed to serialize hparams: %w", err)
+	}
+	hparams := string(bytes)
+
+	if _, err := idb.NewInsert().Model(trial).
+		Column("task_id", "request_id", "experiment_id", "state", "start_time", "end_time",
+			"hparams", "warm_start_checkpoint_id", "seed", "external_trial_id").
+		Value("hparams", "?::jsonb", hparams).
+		On("CONFLICT (experiment_id, external_trial_id) DO UPDATE").
+		Set("hparams = EXCLUDED.hparams").
+		Returning("id, task_id").
+		Exec(ctx); err != nil {
+		return errors.Wrapf(MatchSentinelError(err), "error upserting trial %v", *trial)
+	}
+
+	return nil
+}
+
 // TrialByID looks up a trial by ID, returning an error if none exists.
 func (db *PgDB) TrialByID(id int) (*model.Trial, error) {
 	var trial model.Trial

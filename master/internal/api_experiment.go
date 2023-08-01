@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -2424,8 +2423,16 @@ func (a *apiServer) createTrialTx(
 		return nil, errors.New("trials can only be created on unmanaged experiments")
 	}
 
+	var taskIDSuffix string
+	if externalTrialID == nil {
+		// Persistent taskIDSuffix enables UPSERT in `AddTaskTx`.
+		taskIDSuffix = model.NewTaskID().String()
+	} else {
+		taskIDSuffix = *externalTrialID
+	}
+
 	// HACK: needed for ``experimentIDFromTrialTaskID``.
-	taskID := model.TaskID(fmt.Sprintf("%d.%s", exp.ID, model.NewTaskID()))
+	taskID := model.TaskID(fmt.Sprintf("%d.%s", exp.ID, taskIDSuffix))
 
 	trialModel := model.NewTrial(
 		model.PausedState,
@@ -2450,8 +2457,12 @@ func (a *apiServer) createTrialTx(
 		return nil, err
 	}
 
-	if err := db.AddTrialTx(ctx, idb, trialModel); err != nil {
+	if err := db.UpsertTrialTxByExternalID(ctx, idb, trialModel); err != nil {
 		return nil, err
+	}
+
+	if trialModel.TaskID != taskID {
+		return nil, fmt.Errorf("unexpected task_id change: %s -> %s", trialModel.TaskID, taskID)
 	}
 
 	trialRes, err := trials.ProtoGetTrialsPlusTx(ctx, idb, []int{trialModel.ID})
@@ -2498,63 +2509,22 @@ func (a *apiServer) PutTrial(ctx context.Context, req *apiv1.PutTrialRequest) (
 		return nil, err
 	}
 
-	// Fetch the existing trial.
-	var trial trials.Trial
+	var trial *trialv1.Trial
 
-	// We will opportunistically return a response, so `RunInTx` is not the best fit.
-	tx, err := db.Bun().BeginTx(ctx, nil)
-	defer func() {
-		txErr := tx.Rollback()
-		if txErr != nil && txErr != sql.ErrTxDone {
-			log.WithError(txErr).Error("error rolling back transaction in PutTrial")
+	err = db.Bun().RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		innerResp, err := a.createTrialTx(ctx, tx, req.CreateTrialRequest, &req.ExternalTrialId)
+		if err != nil {
+			return fmt.Errorf("failed to create trial: %w", err)
 		}
-	}()
+		trial = innerResp.Trial
+		return nil
+	})
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to run create trial tx: %w", err)
 	}
 
-	if _, err := tx.NewRaw(`LOCK TABLE trials`).Exec(ctx); err != nil {
-		return nil, err
-	}
-	err = tx.NewSelect().Model(&trial).
-		Column("id").
-		Where("experiment_id = ?", req.CreateTrialRequest.ExperimentId).
-		Where("external_trial_id = ?", req.ExternalTrialId).
-		Scan(ctx)
-	if err != nil {
-		err = db.MatchSentinelError(err)
-		if errors.Is(err, db.ErrNotFound) {
-			innerResp, err := a.createTrialTx(ctx, tx, req.CreateTrialRequest, &req.ExternalTrialId)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create trial: %w", err)
-			}
-			if err = tx.Commit(); err != nil {
-				return nil, fmt.Errorf("failed to commit tx: %w", err)
-			}
-
-			return &apiv1.PutTrialResponse{Trial: innerResp.Trial}, err
-		}
-
-		return nil, err
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit tx: %w", err)
-	}
-
-	// TODO(ilia): Patch trial fields.
-
-	resp := &apiv1.PutTrialResponse{Trial: &trialv1.Trial{}}
-
-	if err := a.m.db.QueryProtof(
-		"proto_get_trials_plus",
-		[]any{"($1::int, $2::int)"},
-		resp.Trial,
-		trial.ID,
-		1,
-	); err != nil {
-		return nil, errors.Wrapf(err, "failed to get trial %d", trial.ID)
-	}
+	resp := &apiv1.PutTrialResponse{Trial: trial}
 
 	return resp, nil
 }
