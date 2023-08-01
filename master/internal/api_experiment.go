@@ -94,13 +94,14 @@ func (a *apiServer) enrichExperimentStateTx(
 	tasks := []experimentAllocation{}
 	query := `
 	SELECT
-	j.job_id AS job,
-	BOOL_OR(CASE WHEN a.state = 'PULLING' THEN true ELSE false END) AS pulling,
-	BOOL_OR(CASE WHEN a.state = 'STARTING' THEN true ELSE false END) AS starting,
-	BOOL_OR(CASE WHEN a.state = 'RUNNING' THEN true ELSE false END) AS running
-	FROM jobs j
-	JOIN tasks t ON t.job_id = j.job_id
-	JOIN allocations a ON a.task_id = t.task_id
+		j.job_id AS job,
+		BOOL_OR(CASE WHEN a.state = 'PULLING' THEN true ELSE false END) AS pulling,
+		BOOL_OR(CASE WHEN a.state = 'STARTING' THEN true ELSE false END) AS starting,
+		BOOL_OR(CASE WHEN a.state = 'RUNNING' THEN true ELSE false END) AS running
+	FROM
+		jobs j
+		JOIN tasks t ON t.job_id = j.job_id
+		JOIN allocations a ON a.task_id = t.task_id
 	WHERE j.job_id in (SELECT unnest(string_to_array(?, ',')))
 	GROUP BY j.job_id
 	`
@@ -1509,29 +1510,11 @@ func (a *apiServer) PutExperiment(
 	var innerResp *apiv1.CreateExperimentResponse
 
 	dbExp.ExternalExperimentID = &req.ExternalExperimentId
-	// TODO(ilia): Ideally, we'd create experiments atomically in a tx, but it requires a lot of
-	// legacy db -> bun refactoring.
-	// This select is *slightly* redundant as `createUnmanagedExperiment` will do UPSERT.
-	existingDBExp, err := db.ExperimentByExternalIDTx(ctx, db.Bun(), req.ExternalExperimentId)
-	switch {
-	case errors.Is(err, db.ErrNotFound):
-		innerResp, err = a.createUnmanagedExperimentTx(ctx, db.Bun(), dbExp, activeConfig, taskSpec, user)
 
-		if err != nil {
-			return nil, fmt.Errorf("failed to create unmanaged experiment: %w", err)
-		}
-	case err != nil:
-		return nil, fmt.Errorf("failed to fetch experiment by external id: %w", err)
-	default:
-		// TODO(ilia): Consider updating some experiment fields.
-		protoExp, err := a.getExperiment(ctx, *user, existingDBExp.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get experiment: %w", err)
-		}
-		innerResp = &apiv1.CreateExperimentResponse{
-			Experiment: protoExp,
-			Config:     protoutils.ToStruct(activeConfig),
-		}
+	innerResp, err = a.createUnmanagedExperimentTx(ctx, db.Bun(), dbExp, activeConfig, taskSpec, user)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create unmanaged experiment: %w", err)
 	}
 
 	resp := apiv1.PutExperimentResponse{
