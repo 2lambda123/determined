@@ -133,7 +133,7 @@ func (a *agent) receive(ctx *actor.Context, msg interface{}) error {
 			panic("websocket already connected")
 		}
 
-		conn, err := ws.UpgradeWebSocketRequest(msg.Ctx)
+		conn, err := ws.UpgradeEchoConnection(msg.Ctx)
 		if err != nil {
 			panic(err)
 		}
@@ -238,6 +238,7 @@ func (a *agent) receive(ctx *actor.Context, msg interface{}) error {
 			WithField("slots", len(msg.StartContainer.Container.Devices))
 		log.Infof("starting container")
 
+		// TODO(DET-5862): After push arch, return and handle errors when starting allocations.
 		a.socket.Outbox <- aproto.AgentMessage{StartContainer: &msg.StartContainer}
 
 		if err := a.agentState.startContainer(ctx, msg); err != nil {

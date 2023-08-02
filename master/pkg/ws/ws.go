@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 
@@ -174,7 +175,7 @@ func (s *WebSocket[TIn, TOut]) runWriteLoop(ctx context.Context, outbox <-chan T
 	}
 }
 
-// Close closes the websocket by performing the close handshake and closing the underlying
+// Close closes the WebSocket by performing the close handshake and closing the underlying
 // connection, rendering it unusable.
 func (s *WebSocket[TIn, TOut]) Close() error {
 	s.closeOnce.Do(func() {
@@ -256,14 +257,19 @@ func (s *WebSocket[TIn, TOut]) setError(err error) {
 
 var upgrader = websocket.Upgrader{}
 
-// UpgradeWebSocketRequest is a helper function for upgrading Echo requests to WebSockets using
+// UpgradeConnection is a helper function for upgrading stdlib HTTP requests to WebSockets using
 // a zero-value Gorilla Upgrader.
-func UpgradeWebSocketRequest(e echo.Context) (*websocket.Conn, error) {
-	httpReq := e.Request()
-	conn, err := upgrader.Upgrade(e.Response(), httpReq, nil)
+func UpgradeConnection(resp http.ResponseWriter, req *http.Request) (*websocket.Conn, error) {
+	conn, err := upgrader.Upgrade(resp, req, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "websocket connection error")
 	}
 
 	return conn, nil
+}
+
+// UpgradeEchoConnection is a helper function for upgrading Echo requests to WebSockets using
+// a zero-value Gorilla Upgrader.
+func UpgradeEchoConnection(e echo.Context) (*websocket.Conn, error) {
+	return UpgradeConnection(e.Response(), e.Request())
 }

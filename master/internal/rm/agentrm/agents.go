@@ -7,11 +7,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/soheilhy/cmux"
-
-	"github.com/determined-ai/determined/master/pkg/model"
-
 	"github.com/pkg/errors"
+	"github.com/soheilhy/cmux"
 
 	"github.com/determined-ai/determined/master/internal/config"
 	"github.com/determined-ai/determined/master/internal/connsave"
@@ -20,6 +17,7 @@ import (
 	"github.com/determined-ai/determined/master/pkg/actor/api"
 	"github.com/determined-ai/determined/master/pkg/aproto"
 	"github.com/determined-ai/determined/master/pkg/check"
+	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/proto/pkg/apiv1"
 )
 
