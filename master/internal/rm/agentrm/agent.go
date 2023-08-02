@@ -17,12 +17,13 @@ import (
 	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/actor/actors"
-	ws "github.com/determined-ai/determined/master/pkg/actor/api"
+	actorapi "github.com/determined-ai/determined/master/pkg/actor/api"
 	"github.com/determined-ai/determined/master/pkg/aproto"
 	"github.com/determined-ai/determined/master/pkg/check"
 	"github.com/determined-ai/determined/master/pkg/cproto"
 	"github.com/determined-ai/determined/master/pkg/device"
 	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/master/pkg/ws"
 	"github.com/determined-ai/determined/proto/pkg/agentv1"
 	proto "github.com/determined-ai/determined/proto/pkg/apiv1"
 )
@@ -31,7 +32,7 @@ type (
 	agent struct {
 		address          string
 		resourcePool     *actor.Ref
-		socket           *actor.Ref
+		socket           *ws.WebSocket[aproto.MasterMessage, aproto.AgentMessage]
 		slots            *actor.Ref
 		resourcePoolName string
 		// started tracks if we have received the AgentStarted message.
@@ -127,10 +128,21 @@ func (a *agent) receive(ctx *actor.Context, msg interface{}) error {
 		a.slots, _ = ctx.ActorOf("slots", &slots{})
 	case model.AgentSummary:
 		ctx.Respond(a.summarize(ctx))
-	case ws.WebSocketConnected:
-		check.Panic(check.True(a.socket == nil, "websocket already connected"))
-		socket, ok := msg.Accept(ctx, aproto.MasterMessage{}, true)
-		check.Panic(check.True(ok, "failed to accept websocket connection"))
+	case actorapi.WebSocketRequest:
+		if a.socket != nil {
+			panic("websocket already connected")
+		}
+
+		conn, err := ws.UpgradeWebSocketRequest(msg.Ctx)
+		if err != nil {
+			panic(err)
+		}
+
+		socket, err := ws.Wrap[aproto.MasterMessage, aproto.AgentMessage]("master-agent-ws", conn)
+		if err != nil {
+			panic("failed to accept websocket connection: " + err.Error())
+		}
+
 		a.socket = socket
 		a.version = msg.Ctx.QueryParam("version")
 
@@ -154,10 +166,7 @@ func (a *agent) receive(ctx *actor.Context, msg interface{}) error {
 			a.awaitingRestore = false
 		}
 
-		wsm := ws.WriteMessage{Message: masterSetAgentOptions}
-		if err := ctx.Ask(a.socket, wsm).Error(); err != nil {
-			ctx.Log().WithError(err).Error("failed to write master set agent options")
-		}
+		a.socket.Outbox <- masterSetAgentOptions
 
 		if a.awaitingReconnect {
 			ctx.Log().Info("agent reconnected")
@@ -210,20 +219,14 @@ func (a *agent) receive(ctx *actor.Context, msg interface{}) error {
 		killMsg := aproto.SignalContainer{
 			ContainerID: msg.ContainerID, Signal: syscall.SIGKILL,
 		}
-		wsm := ws.WriteMessage{Message: aproto.AgentMessage{SignalContainer: &killMsg}}
-		if err := ctx.Ask(a.socket, wsm).Error(); err != nil {
-			log.WithError(err).Error("failed to write kill task message")
-		}
+		a.socket.Outbox <- aproto.AgentMessage{SignalContainer: &killMsg}
 	case aproto.SignalContainer:
 		if a.awaitingReconnect {
 			a.bufferForRecovery(ctx, msg)
 			return nil
 		}
 
-		wsm := ws.WriteMessage{Message: aproto.AgentMessage{SignalContainer: &msg}}
-		if err := ctx.Ask(a.socket, wsm).Error(); err != nil {
-			ctx.Log().WithError(err).Error("failed to write signal container message")
-		}
+		a.socket.Outbox <- aproto.AgentMessage{SignalContainer: &msg}
 	case sproto.StartTaskContainer:
 		if a.awaitingReconnect {
 			a.bufferForRecovery(ctx, msg)
@@ -235,12 +238,7 @@ func (a *agent) receive(ctx *actor.Context, msg interface{}) error {
 			WithField("slots", len(msg.StartContainer.Container.Devices))
 		log.Infof("starting container")
 
-		wsm := ws.WriteMessage{Message: aproto.AgentMessage{StartContainer: &msg.StartContainer}}
-		if err := ctx.Ask(a.socket, wsm).Error(); err != nil {
-			// TODO(DET-5862): After push arch, return and handle this error when starting allocations.
-			log.WithError(err).Error("failed to write start container message")
-			ctx.Respond(sproto.NewResourcesFailure(sproto.AgentError, err.Error(), nil))
-		}
+		a.socket.Outbox <- aproto.AgentMessage{StartContainer: &msg.StartContainer}
 
 		if err := a.agentState.startContainer(ctx, msg); err != nil {
 			log.WithError(err).Error("failed to update agent state")
@@ -394,9 +392,9 @@ func (a *agent) receive(ctx *actor.Context, msg interface{}) error {
 		ctx.Respond(a.agentState.getSlotsSummary(ctx))
 	case actor.PostStop:
 		if a.started {
-			// This normally will run on agent WebSocketConnected to populate
+			// This normally will run on agent WebSocketRequest to populate
 			// agentState.containerAllocation. There is technically still race here
-			// (and also in calling this in WebSocketConnected). We have no synchronization
+			// (and also in calling this in WebSocketRequest). We have no synchronization
 			// between allocation actors starting and registering themselves in the
 			// allocationmap and the lookup of allocationmap in restoreContainersField().
 			// Though this will likely run after agentReconnectWait which should
@@ -421,6 +419,10 @@ func (a *agent) receive(ctx *actor.Context, msg interface{}) error {
 
 			if err := a.agentState.delete(); err != nil {
 				ctx.Log().WithError(err).Warnf("failed to delete agent state")
+			}
+
+			if err := a.socket.Close(); err != nil {
+				ctx.Log().WithError(err).Warnf("error while shutting down agent WebSocket")
 			}
 		} else {
 			ctx.Log().Info("agent dsconnected but wasn't started")
@@ -461,17 +463,12 @@ func (a *agent) handleIncomingWSMessage(ctx *actor.Context, msg aproto.MasterMes
 			if err != nil {
 				log.WithError(err).
 					Error("change in agent devices was detected")
-				wsm := ws.WriteMessage{
-					Message: aproto.AgentMessage{
-						AgentShutdown: &aproto.AgentShutdown{
-							ErrMsg: aproto.ErrAgentMustReconnect.Error(),
-						},
+				a.socket.Outbox <- aproto.AgentMessage{
+					AgentShutdown: &aproto.AgentShutdown{
+						ErrMsg: aproto.ErrAgentMustReconnect.Error(),
 					},
 				}
-				if err = ctx.Ask(a.socket, wsm).Error(); err != nil {
-					log.WithError(err).Error("failed to tell agent to reconnect")
-					panic(err)
-				}
+
 				ctx.Self().Stop()
 				return
 			}

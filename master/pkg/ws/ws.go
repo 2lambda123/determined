@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/labstack/echo/v4"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -250,4 +252,18 @@ func (s *WebSocket[TIn, TOut]) setError(err error) {
 	if s.err == nil {
 		s.err = err
 	}
+}
+
+var upgrader = websocket.Upgrader{}
+
+// UpgradeWebSocketRequest is a helper function for upgrading Echo requests to WebSockets using
+// a zero-value Gorilla Upgrader.
+func UpgradeWebSocketRequest(e echo.Context) (*websocket.Conn, error) {
+	httpReq := e.Request()
+	conn, err := upgrader.Upgrade(e.Response(), httpReq, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "websocket connection error")
+	}
+
+	return conn, nil
 }

@@ -80,7 +80,7 @@ func (a *agents) Receive(ctx *actor.Context) error {
 				ctx.Log().WithError(err).Warnf("failed to clean bad agent states")
 			}
 		}
-	case api.WebSocketConnected:
+	case api.WebSocketRequest:
 		cmuxConn := connsave.GetConn(msg.Ctx.Request().Context()).(*cmux.MuxConn)
 		// Here, we just have to check that there are any certificates at all, since the top-level TLS
 		// config verifies that any certificates that are provided are valid.
@@ -106,7 +106,7 @@ func (a *agents) Receive(ctx *actor.Context) error {
 		// If the agent actor is still alive on our side when an agent tries to reconnect,
 		// accept it. Whether it is a network failure or a crash/restart, we will just try
 		// to reattach whatever containers still exist.
-		// That logic is located in agent.receive(ws.WebSocketConnected).
+		// That logic is located in agent.receive(ws.WebSocketRequest).
 		if existingRef != nil {
 			ctx.Log().WithField("reconnect", reconnect).Infof("restoring agent id: %s", id)
 			ctx.Respond(ctx.Ask(existingRef, msg).Get())
