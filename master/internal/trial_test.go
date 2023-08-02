@@ -134,7 +134,7 @@ func setup(t *testing.T) (
 	as.On(
 		"StartAllocation", mock.Anything, mock.Anything, mock.Anything,
 		mock.Anything, mock.Anything, mock.Anything, mock.Anything,
-	).Return(nil)
+	).Return()
 
 	// mock db.
 	db := &mocks.DB{}
@@ -145,7 +145,7 @@ func setup(t *testing.T) (
 	// instantiate the trial
 	rID := model.NewRequestID(rand.Reader)
 	taskID := model.TaskID(fmt.Sprintf("%s-%s", model.TaskTypeTrial, rID))
-	tr := newTrial(
+	tr, _ := newTrial(
 		detLogger.Context{},
 		taskID,
 		model.JobID("1"),
@@ -170,7 +170,8 @@ func setup(t *testing.T) (
 		},
 		ssh.PrivateAndPublicKeys{},
 		false,
+		nil, false, nil, nil,
 	)
-	self := system.MustActorOf(actor.Addr("trial"), tr)
-	return system, db, rID, tr, self, &as
+	// self := system.MustActorOf(actor.Addr("trial"), tr)
+	return system, db, rID, tr, nil, &as
 }
