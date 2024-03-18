@@ -295,8 +295,7 @@ class _PyTorchReducerContext:
         name: Optional[str] = None,
         for_training: bool = True,
         for_validation: bool = True,
-    ) -> _SimpleReducer:
-        ...
+    ) -> _SimpleReducer: ...
 
     # When wrap_reducer is passed a MetricReducer, it returns the same MetricReducer.
     @overload
@@ -306,8 +305,7 @@ class _PyTorchReducerContext:
         name: Optional[str] = None,
         for_training: bool = True,
         for_validation: bool = True,
-    ) -> T:
-        ...
+    ) -> T: ...
 
     def wrap_reducer(
         self,

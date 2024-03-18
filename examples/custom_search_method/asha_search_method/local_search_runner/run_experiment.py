@@ -15,6 +15,7 @@ the events to your custom SearchMethod, which, in turn, produces a list of Opera
 response to the events. LocalSearchRunner sends the operations to the remote experiment
 for execution.
 """
+
 import sys
 
 sys.path.append(".")

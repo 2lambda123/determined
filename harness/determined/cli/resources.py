@@ -26,9 +26,11 @@ def aggregated(args: Namespace) -> None:
     params = {
         "start_date": args.start_date,
         "end_date": args.end_date,
-        "period": "RESOURCE_ALLOCATION_AGGREGATION_PERIOD_MONTHLY"
-        if args.monthly
-        else "RESOURCE_ALLOCATION_AGGREGATION_PERIOD_DAILY",
+        "period": (
+            "RESOURCE_ALLOCATION_AGGREGATION_PERIOD_MONTHLY"
+            if args.monthly
+            else "RESOURCE_ALLOCATION_AGGREGATION_PERIOD_DAILY"
+        ),
     }
     path = (
         "api/v1/resources/allocation/aggregated" if args.json else "resources/allocation/aggregated"

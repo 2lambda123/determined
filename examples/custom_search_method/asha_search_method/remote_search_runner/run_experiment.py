@@ -12,6 +12,7 @@ RemoteSearchRunner receives SearcherEvents from the multi-trial experiment, and 
 the events to your custom SearchMethod, which, in turn, produces a list of Operations.
 Next, RemoteSearchRunner sends the operations to the multi-trial experiment for execution.
 """
+
 import sys
 
 sys.path.append(".")

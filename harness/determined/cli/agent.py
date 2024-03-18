@@ -118,9 +118,11 @@ def list_slots(args: argparse.Namespace) -> None:
                 ("draining", slot.draining),
                 (
                     "allocation_id",
-                    c_names[slot.container.id]["allocation_id"]
-                    if slot.container and slot.container.id in c_names
-                    else ("OCCUPIED" if slot.container else "FREE"),
+                    (
+                        c_names[slot.container.id]["allocation_id"]
+                        if slot.container and slot.container.id in c_names
+                        else ("OCCUPIED" if slot.container else "FREE")
+                    ),
                 ),
                 ("task_name", get_task_name(c_names, slot)),
                 ("type", device_type_string((slot.device or bindings.v1Device()).type)),

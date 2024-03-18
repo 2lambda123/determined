@@ -114,8 +114,8 @@ class QABeamSearchTrial(hf.BaseTransformerTrial):
             hf.build_default_lr_scheduler(self.optimizer, scheduler_kwargs),
             det_torch.LRScheduler.StepMode.STEP_EVERY_BATCH,
         )
-        self.grad_clip_fn = (
-            lambda x: torch.nn.utils.clip_grad_norm_(x, optimizer_kwargs.max_grad_norm)
+        self.grad_clip_fn = lambda x: (
+            torch.nn.utils.clip_grad_norm_(x, optimizer_kwargs.max_grad_norm)
             if optimizer_kwargs.max_grad_norm > 0  # type: ignore
             else None
         )

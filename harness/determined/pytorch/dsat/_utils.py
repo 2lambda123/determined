@@ -355,9 +355,9 @@ def report_json_results(
 def get_zero_stage_search_space(
     zero_stage: int,
 ) -> Dict[str, List[Union[bool, float]]]:
-    default_settings: Dict[
-        int, Dict[str, List[Union[bool, float]]]
-    ] = _defaults.DEFAULT_ZERO_SEARCH_SPACE
+    default_settings: Dict[int, Dict[str, List[Union[bool, float]]]] = (
+        _defaults.DEFAULT_ZERO_SEARCH_SPACE
+    )
     assert (
         zero_stage in default_settings
     ), f"Invalid zero_stage, must be one of {list(default_settings)}"

@@ -1,5 +1,6 @@
 """
 """
+
 import copy
 import os
 import sys
@@ -156,8 +157,8 @@ class DETRTrial(PyTorchTrial):
             step_mode=LRScheduler.StepMode.STEP_EVERY_EPOCH,
         )
 
-        self.clip_grads_fn = (
-            lambda x: torch.nn.utils.clip_grad_norm_(x, self.hparams.clip_max_norm)
+        self.clip_grads_fn = lambda x: (
+            torch.nn.utils.clip_grad_norm_(x, self.hparams.clip_max_norm)
             if self.hparams.clip_max_norm > 0
             else None
         )

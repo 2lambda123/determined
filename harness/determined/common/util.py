@@ -38,13 +38,11 @@ T = TypeVar("T")
 
 
 @overload
-def chunks(lst: str, chunk_size: int) -> Iterator[str]:
-    ...
+def chunks(lst: str, chunk_size: int) -> Iterator[str]: ...
 
 
 @overload
-def chunks(lst: Sequence[T], chunk_size: int) -> Iterator[Sequence[T]]:
-    ...
+def chunks(lst: Sequence[T], chunk_size: int) -> Iterator[Sequence[T]]: ...
 
 
 def chunks(
