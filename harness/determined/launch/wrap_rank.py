@@ -12,6 +12,7 @@ horovodrun are used, as they often are configured to send all logs from worker
 nodes to the chief node over the network.  This may be disabled with the
 ``--no-redirect-stdio`` flag.
 """
+
 import argparse
 import contextlib
 import os

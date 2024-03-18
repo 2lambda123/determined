@@ -1,6 +1,7 @@
 """
 Report steps, validations and training in all possible combinations, on each step.
 """
+
 import itertools
 
 import determined as det

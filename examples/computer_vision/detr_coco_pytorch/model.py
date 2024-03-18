@@ -2,6 +2,7 @@
 Copied from: https://github.com/facebookresearch/detr/blob/4e1a9281bc5621dcd65f3438631de25e255c4269/models/detr.py
 The SetCriterion module is modified to sync num_boxes using horovod allreduce instead of pytorch all_reduce.
 """
+
 import sys
 
 sys.path.append("./detr")

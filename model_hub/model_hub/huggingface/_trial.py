@@ -145,9 +145,7 @@ def build_default_lr_scheduler(
     )
 
 
-def default_load_dataset(
-    data_config: Union[Dict, attrdict.AttrDict]
-) -> Union[
+def default_load_dataset(data_config: Union[Dict, attrdict.AttrDict]) -> Union[
     hf_datasets.Dataset,
     hf_datasets.IterableDataset,
     hf_datasets.DatasetDict,

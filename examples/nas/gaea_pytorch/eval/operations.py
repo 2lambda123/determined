@@ -9,9 +9,9 @@ OPS = {
     "max_pool_3x3": lambda C, stride, affine, activation_function: nn.MaxPool2d(
         3, stride=stride, padding=1
     ),
-    "skip_connect": lambda C, stride, affine, activation_function: Identity()
-    if stride == 1
-    else FactorizedReduce(C, C, affine=affine),
+    "skip_connect": lambda C, stride, affine, activation_function: (
+        Identity() if stride == 1 else FactorizedReduce(C, C, affine=affine)
+    ),
     "sep_conv_3x3": lambda C, stride, affine, activation_function: SepConv(
         C, C, 3, stride, 1, affine=affine, activation_function=activation_function
     ),

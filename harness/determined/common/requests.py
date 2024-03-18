@@ -1,6 +1,7 @@
 """
 A drop-in replacement for requests.request() which supports server name overriding.
 """
+
 from typing import Any, Optional
 
 import requests

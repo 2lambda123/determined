@@ -491,9 +491,11 @@ def num_trials(experiment_id: int) -> int:
 
 def num_active_trials(experiment_id: int) -> int:
     return sum(
-        1
-        if t.trial.state in [trialv1State.RUNNING, trialv1State.STARTING, trialv1State.PULLING]
-        else 0
+        (
+            1
+            if t.trial.state in [trialv1State.RUNNING, trialv1State.STARTING, trialv1State.PULLING]
+            else 0
+        )
         for t in experiment_trials(experiment_id)
     )
 

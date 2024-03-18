@@ -2,6 +2,7 @@
 Slightly altered data.py file to integrate with Determined
 
 """
+
 import bisect
 import copy
 import itertools
@@ -275,9 +276,9 @@ def build_detection_train_loader(
         dataset_dicts = get_detection_dataset_dicts(
             cfg.DATASETS.TRAIN,
             filter_empty=cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
-            min_keypoints=cfg.MODEL.ROI_KEYPOINT_HEAD.MIN_KEYPOINTS_PER_IMAGE
-            if cfg.MODEL.KEYPOINT_ON
-            else 0,
+            min_keypoints=(
+                cfg.MODEL.ROI_KEYPOINT_HEAD.MIN_KEYPOINTS_PER_IMAGE if cfg.MODEL.KEYPOINT_ON else 0
+            ),
             proposal_files=cfg.DATASETS.PROPOSAL_FILES_TRAIN if cfg.MODEL.LOAD_PROPOSALS else None,
         )
         dataset = DatasetFromList(dataset_dicts, copy=False)
@@ -349,11 +350,11 @@ def build_detection_test_loader(cfg, dataset_name, mapper=None, context=None):
         dataset_dicts = get_detection_dataset_dicts(
             [dataset_name],
             filter_empty=False,
-            proposal_files=[
-                cfg.DATASETS.PROPOSAL_FILES_TEST[list(cfg.DATASETS.TEST).index(dataset_name)]
-            ]
-            if cfg.MODEL.LOAD_PROPOSALS
-            else None,
+            proposal_files=(
+                [cfg.DATASETS.PROPOSAL_FILES_TEST[list(cfg.DATASETS.TEST).index(dataset_name)]]
+                if cfg.MODEL.LOAD_PROPOSALS
+                else None
+            ),
         )
 
         dataset = DatasetFromList(dataset_dicts)

@@ -1,6 +1,7 @@
 """
 The entrypoint for the GC checkpoints job container.
 """
+
 import argparse
 import json
 import logging
