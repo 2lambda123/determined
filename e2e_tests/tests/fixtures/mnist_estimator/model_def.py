@@ -1,6 +1,7 @@
 """
 Trains a simple DNN on the MNIST dataset using the TensorFlow Estimator API.
 """
+
 import logging
 import os
 import tarfile

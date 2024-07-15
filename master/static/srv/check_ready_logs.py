@@ -2,6 +2,7 @@
 check_ready_logs.py accepts a task's logs as STDIN, runs a regex to determine and report readiness.
 Callers should be aware it may terminate early, and stop reading from STDIN.
 """
+
 import argparse
 import os
 import re

@@ -1,6 +1,7 @@
 """
 This file loads the training and validation data for model_def
 """
+
 import logging
 import os
 import shutil

@@ -1,6 +1,7 @@
 """
 Slightly altered test functions from test_coco.py
 """
+
 import json
 import os
 import tempfile

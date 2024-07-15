@@ -6,6 +6,7 @@ regarding the optional flags view the original script linked below.
 This implementation is based on:
 https://github.com/pytorch/examples/tree/master/word_language_model
 """
+
 import urllib.request
 import zipfile
 from pathlib import Path

@@ -1,6 +1,7 @@
 """
 Implement Pix2Pix model based on: https://www.tensorflow.org/tutorials/generative/pix2pix
 """
+
 from typing import Tuple
 
 import tensorflow as tf

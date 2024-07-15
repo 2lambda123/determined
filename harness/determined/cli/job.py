@@ -77,11 +77,13 @@ def ls(args: Namespace) -> None:
             j.type.value,
             computed_job_name(j) if isinstance(j, bindings.v1Job) else render.OMITTED_VALUE,
             j.priority if is_priority else j.weight,
-            pytz.utc.localize(
-                datetime.strptime(j.submissionTime.split(".")[0], "%Y-%m-%dT%H:%M:%S")
-            )
-            if isinstance(j, bindings.v1Job)
-            else render.OMITTED_VALUE,
+            (
+                pytz.utc.localize(
+                    datetime.strptime(j.submissionTime.split(".")[0], "%Y-%m-%dT%H:%M:%S")
+                )
+                if isinstance(j, bindings.v1Job)
+                else render.OMITTED_VALUE
+            ),
             f"{j.allocatedSlots}/{j.requestedSlots}",
             j.summary.state.value if j.summary is not None else "N/A",
             j.username if isinstance(j, bindings.v1Job) else render.OMITTED_VALUE,

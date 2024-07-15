@@ -633,12 +633,14 @@ def main(det_callback, tb_callback, model_args, data_args, training_args):
         tokenizer=tokenizer,
         # Data collator will default to DataCollatorWithPadding, so we change it.
         data_collator=default_data_collator,
-        compute_metrics=compute_metrics
-        if training_args.do_eval and not is_torch_tpu_available()
-        else None,
-        preprocess_logits_for_metrics=preprocess_logits_for_metrics
-        if training_args.do_eval and not is_torch_tpu_available()
-        else None,
+        compute_metrics=(
+            compute_metrics if training_args.do_eval and not is_torch_tpu_available() else None
+        ),
+        preprocess_logits_for_metrics=(
+            preprocess_logits_for_metrics
+            if training_args.do_eval and not is_torch_tpu_available()
+            else None
+        ),
     )
     trainer.add_callback(det_callback)
     trainer.add_callback(tb_callback)

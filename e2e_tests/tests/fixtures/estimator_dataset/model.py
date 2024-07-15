@@ -31,6 +31,7 @@ TODO(DET-616): The TensorFlow-computed losses for batches thereafter diverge
 from the analytical calculations. Replace this model with a more robust one.
 
 """
+
 from typing import Any, List
 
 import numpy as np

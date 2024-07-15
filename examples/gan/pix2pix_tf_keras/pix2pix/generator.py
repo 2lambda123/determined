@@ -1,6 +1,7 @@
 """
 Implement Pix2Pix generator model based on: https://www.tensorflow.org/tutorials/generative/pix2pix
 """
+
 import tensorflow as tf
 
 from .sampling import downsample, upsample

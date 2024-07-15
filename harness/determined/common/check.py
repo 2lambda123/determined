@@ -24,6 +24,7 @@ The second scheme is generally preferred because it more clearly indicates a
 module dependency at the call site and it reduces diff churn when checks are
 added or removed.
 """
+
 from typing import Any, Container, Optional, Sized, Tuple, Type, Union
 
 

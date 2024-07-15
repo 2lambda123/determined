@@ -6,6 +6,7 @@ build_fp16_loss_scaler is large derived from the original mmcv code at
 https://github.com/open-mmlab/mmcv/blob/master/mmcv/runner/hooks/optimizer.py
 mmcv is covered by the Apache 2.0 License.  Copyright (c) OpenMMLab. All rights reserved.
 """
+
 import os
 from typing import Any, Dict, Tuple
 
