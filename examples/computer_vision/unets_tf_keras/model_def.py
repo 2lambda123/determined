@@ -5,6 +5,7 @@ regarding the optional flags view the original script linked below.
 This implementation is based on:
 https://github.com/tensorflow/docs/blob/master/site/en/tutorials/images/segmentation.ipynb
 """
+
 import os
 import urllib.request
 

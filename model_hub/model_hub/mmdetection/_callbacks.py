@@ -2,6 +2,7 @@
 Convert the LRUpdaterHook in mmcv to a PyTorchCallback.
 See: https://github.com/open-mmlab/mmcv/blob/master/mmcv/runner/hooks/lr_updater.py.
 """
+
 from typing import Any, Dict, Optional, cast
 
 import mmcv

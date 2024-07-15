@@ -441,9 +441,11 @@ class DSATTrialTracker:
         min_or_max = min if self.smaller_is_better else max
         best_trial = min_or_max(
             trials_with_searcher_metric,
-            key=lambda trial: trial.metric
-            if isinstance(trial.metric, float)
-            else float(trial.metric[self.searcher_metric]),
+            key=lambda trial: (
+                trial.metric
+                if isinstance(trial.metric, float)
+                else float(trial.metric[self.searcher_metric])
+            ),
         )
         return best_trial
 

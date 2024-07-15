@@ -13,6 +13,7 @@ Useful References:
 Based on: https://github.com/fchollet/keras/blob/master/examples/cifar10_cnn.py
 
 """
+
 from typing import Generator, List, Tuple
 
 import numpy as np

@@ -19,6 +19,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import collections
 import json
 import logging
@@ -106,9 +107,11 @@ def prepare_features(
             # The cls token gets 1.0 too (for predictions of empty answers).
             tokenized_examples["p_mask"].append(
                 [
-                    0.0
-                    if (not special_tokens[i][k] and s == context_idx) or k == cls_index
-                    else 1.0
+                    (
+                        0.0
+                        if (not special_tokens[i][k] and s == context_idx) or k == cls_index
+                        else 1.0
+                    )
                     for k, s in enumerate(sequence_ids)
                 ]
             )
@@ -210,9 +213,11 @@ def prepare_features(
             # Build the p_mask: non special tokens and context gets 0.0, the others 1.0.
             tokenized_examples["p_mask"].append(
                 [
-                    0.0
-                    if (not special_tokens[i][k] and s == context_idx) or k == cls_index
-                    else 1.0
+                    (
+                        0.0
+                        if (not special_tokens[i][k] and s == context_idx) or k == cls_index
+                        else 1.0
+                    )
                     for k, s in enumerate(sequence_ids)
                 ]
             )

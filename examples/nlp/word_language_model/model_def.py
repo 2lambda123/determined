@@ -6,6 +6,7 @@ regarding the optional flags view the original script linked below.
 This implementation is based on:
 https://github.com/pytorch/examples/tree/master/word_language_model
 """
+
 from pathlib import Path
 from typing import Dict, Sequence, Union
 

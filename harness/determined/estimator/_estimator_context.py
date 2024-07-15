@@ -98,9 +98,11 @@ class EstimatorTrialContext(det.TrialContext, estimator._EstimatorReducerContext
         # The signature of our horovod optimizer changed after we rebased onto 0.21.
         hvd_sig = inspect.signature(hvd.DistributedOptimizer)
         horovod_kwargs = {
-            "compression": hvd.compression.Compression.fp16
-            if self.fp16_compression
-            else hvd.compression.Compression.none,
+            "compression": (
+                hvd.compression.Compression.fp16
+                if self.fp16_compression
+                else hvd.compression.Compression.none
+            ),
             "average_aggregated_gradients": self.average_aggregated_gradients,
         }
         if "aggregation_frequency" in hvd_sig.parameters:
