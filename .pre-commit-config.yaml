@@ -84,7 +84,7 @@ repos:
           )$
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.29.0
+    rev: 0.29.1
     hooks:
       - id: check-dependabot
       - id: check-github-actions
@@ -92,13 +92,13 @@ repos:
 
   - repo: https://github.com/psf/black
     # Note: this should be kept in sync with the version in `requirements.txt`.
-    rev: 24.4.2
+    rev: 24.8.0
     hooks:
       - id: black
         exclude: ^(harness/determined/common/api/bindings.py)
   - repo: https://github.com/pycqa/flake8
     # Note: this should be kept in sync with the version in `requirements.txt`.
-    rev: 7.1.0
+    rev: 7.1.1
     hooks:
       - id: flake8
         files: ^(harness|e2e_tests)/.*
