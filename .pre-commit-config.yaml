@@ -10,7 +10,7 @@ repos:
         files: '^webui/react/'
         types_or: [javascript, jsx, ts, tsx]
         stages:
-          - commit
+          - Nonepre-commitNone
       - id: web-css-lint-check
         name: Web CSS Lint Check
         entry: ./pre-commit/web_lint_check.py css
@@ -18,7 +18,7 @@ repos:
         files: '^webui/react/src/'
         types_or: [css, less, scss]
         stages:
-          - commit
+          - Nonepre-commitNone
       - id: web-misc-lint-check
         name: Web Misc Lint Check
         entry: ./pre-commit/web_lint_check.py misc
@@ -26,7 +26,7 @@ repos:
         files: '^webui/react/'
         types_or: [markdown, json]
         stages:
-          - commit
+          - Nonepre-commitNone
       - id: shell-fmt-docker
         name: shfmt
         description: Format shell scripts with shfmt
@@ -40,12 +40,12 @@ repos:
           - zsh
         args: [-w, -s, -l, -i, '4', -ci, -bn]
         stages:
-          - commit
+          - Nonepre-commitNone
       - id: local-checks
         name: Run local checks
         description: run all local checks and format based on the directories changed.
         stages:
-          - push
+          - Nonepre-pushNone
         entry: ./pre-commit/check.py
         require_serial: true
         language: python
