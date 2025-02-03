@@ -84,7 +84,7 @@ repos:
           )$
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.31.0
+    rev: 0.31.1
     hooks:
       - id: check-dependabot
       - id: check-github-actions
@@ -92,7 +92,7 @@ repos:
 
   - repo: https://github.com/psf/black
     # Note: this should be kept in sync with the version in `requirements.txt`.
-    rev: 24.10.0
+    rev: 25.1.0
     hooks:
       - id: black
         exclude: ^(harness/determined/common/api/bindings.py)
@@ -105,7 +105,7 @@ repos:
         exclude: ^harness/tests/experiment/fixtures/ancient-checkpoints/.*
   - repo: https://github.com/pycqa/isort
     # Note: this should be kept in sync with the version in `requirements.txt`.
-    rev: 5.13.2
+    rev: 6.0.0
     hooks:
       - id: isort
         name: isort (python)
